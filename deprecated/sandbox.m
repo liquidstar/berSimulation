@@ -1,19 +1,39 @@
-%% When the shell won't do for dickin' around
-clc; clear; close all;
-sample = 0.01;      % Sampling interval for carrier ##
-symbol_time = 5;    % Number of periods a symbol covers / 2 ##
+clear; clc; close all;
 
-% Sample times
-t = 0:sample*pi:(20-sample)*pi; % ##
-% Random bits to correspond to sample intervals and symbol duration
-src_data = round(rand(1,symbol_time^(-1)*length(t)/sample^(-1)));
+src_data = randomBits(480);
+bauds = mapBits(src_data);
+bauds = reshape(bauds, 48, []);
+ofdmVariant = 'vvvvvdddddpdddddddddddddpddddddvddddddpdddddddddddddpdddddvvvvvv';
 
-% Map data to alphabet
-symbol_alphabet = [ 1, -1]; % BPSK
-src_symbols = symbol_alphabet(src_data+1);
-% Make symbol array equal sample array in size
-src_symbols = repelem(src_symbols,symbol_time*sample^(-1));
+ifftBins = binBauds(bauds, ofdmVariant);
 
-% The output
-y = src_symbols.*cos(t);
-plot(t,y);ylim([-1.1 1.1]);
+
+function bins = binBauds(baudMatrix, ofdmVariant)
+    % TODO: Pass a vector to map carriers to ifft bins
+    % baudMatrix = baudMatrix';
+    [baudRows, baudCols] = size(baudMatrix);
+    bins = zeros(length(ofdmVariant),baudCols);
+    j = 1;
+    for i=1:length(ofdmVariant)
+        if ofdmVariant(i) == 'v'
+            bins(i,:) = zeros(1,baudCols);
+        elseif ofdmVariant(i) == 'd'
+            bins(i,:) = baudMatrix(j,:);
+            j = j + 1;
+        elseif ofdmVariant(i) == 'p'
+            bins(i,:) = ones(1,baudCols);
+        end     
+    end
+    %binSize = size(bins);
+    %binSize(1) = binSize(1)/2;
+    %bins = [zeros(floor(binSize)); bins; zeros(ceil(binSize))]';
+end
+
+ function srcBits = randomBits(bitCount)
+    srcBits = int8(round(rand(1,bitCount)));
+ end
+
+ function bauds = mapBits(bitArray)
+    symAlph = [-1 1];
+    bauds = symAlph(bitArray + 1);
+ end

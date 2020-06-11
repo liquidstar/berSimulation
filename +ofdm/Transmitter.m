@@ -2,33 +2,44 @@ classdef Transmitter
     %   All transmitter operations
     %   Inherited by modulator and IFFT module (probably)
     properties
-        parData
-        bauData
+        subCarrierConfig
+        parBauds
+        serBauds
         binData
         baseBandOfdmSig
-        baseBandAnalog
+        baseBandAnalogI
+        baseBandAnalogQ
         centerFreq
         passBandAnalog
+        analogTimeBase
     end
     methods
-        function trans = Transmitter(serData, numSubCarriers, samplingRate, centerFreq)
+        function trans = Transmitter(serData, ofdmVariant, symbolTime, centerFreq, samplingInterval)
+            trans.subCarrierConfig = [sum(ofdmVariant(:) == 'd') sum(ofdmVariant(:) == 'p') sum(ofdmVariant(:) == 'v')];
             trans.centerFreq = centerFreq;
-            % serData to parallel (serial)
-            trans.parData = reshape(serData, numSubCarriers, []);
-            % parData to Modulator (parallel)
-            trans.bauData = mapBits(trans.parData);
+            % serData to modulator (serial)
+            trans.serBauds = mapBits(serData);
+            % serBauds to parBauds (parallel)
+            trans.parBauds = makeParallel(trans.serBauds, trans.subCarrierConfig);
             % bauData to IFFT bins (parallel)
-            trans.binData = binBauds(trans.bauData);
+            trans.binData = binBauds(trans.parBauds, ofdmVariant);
             % binData to IFFT operation (parallel)
             % iffData to guard interval (parallel)
             % cycData to Serial (serial)
-            trans.baseBandOfdmSig = ofdmMux(trans.binData, numSubCarriers);
+            trans.baseBandOfdmSig = ofdmMux(trans.binData);
             % serOfdmData to Analog (serial)
-            [trans.baseBandAnalog, analogTimeBase] = dac(trans.baseBandOfdmSig, samplingRate);
+            [trans.baseBandAnalogI,trans.baseBandAnalogQ,trans.analogTimeBase] = dac(trans.baseBandOfdmSig, symbolTime, size(trans.binData), samplingInterval);
             % Upscale frequency to RF
-            trans.passBandAnalog = freqUpScale(trans.baseBandAnalog, trans.centerFreq, analogTimeBase);
+            trans.passBandAnalog = freqUpScale(trans.baseBandAnalogI, trans.baseBandAnalogQ, trans.centerFreq, trans.analogTimeBase, samplingInterval);
         end    
     end
+end
+%% S - P Conversion
+function parBauds = makeParallel(serBauds,subCarrierConfig)
+    if (mod(length(serBauds),subCarrierConfig(1)) ~= 0)
+        serBauds = [serBauds zeros(1, subCarrierConfig(1) - mod(length(serBauds),subCarrierConfig(1)))];
+    end
+    parBauds = reshape(serBauds, subCarrierConfig(1), []);
 end
 
 %% BPSK Modulation
@@ -38,44 +49,59 @@ end
  end
 
 %% Map symbols to IFFT bins
- function bins = binBauds(baudMatrix)
-    % TODO: @Rosie
-    % Add virtual carriers
-    % Add pilot carriers
-    bins = baudMatrix';
-    binSize = size(bins);
-    binSize(1) = binSize(1)/2;
-    bins = [zeros(binSize); bins; zeros(binSize)]';
+ function bins = binBauds(baudMatrix, ofdmVariant)
+    % baudMatrix = baudMatrix';
+    [~, baudCols] = size(baudMatrix);
+    bins = zeros(length(ofdmVariant),baudCols);
+    j = 1;
+    for i=1:length(ofdmVariant)
+        if ofdmVariant(i) == 'v'
+            bins(i,:) = zeros(1,baudCols);
+        elseif ofdmVariant(i) == 'd'
+            bins(i,:) = baudMatrix(j,:);
+            j = j + 1;
+        elseif ofdmVariant(i) == 'p'
+            bins(i,:) = ones(1,baudCols);
+        end     
+    end
  end
 
 %% Operate on binned symbols, give baseband signal
- function serOfdmSig = ofdmMux(binData, numSubcarriers)
-    % cycData (symbolsPerCarrier x numSubCarriers + numSubCarriers/4 + guardInterval)
+ function serOfdmSig = ofdmMux(binData)
+    binData = binData';
+    % Add cyclic prefix(25%) and guard interval(20% for 802.11)
     [symPerCarr,numSubCarrier] = size(binData);
-    cycData = zeros(symPerCarr,numSubCarrier*1.5);
-    for i = 1:numSubcarriers
+    cycData = zeros(symPerCarr,1.5*numSubCarrier);
+    for i = 1:symPerCarr
         % ifft it
         ifftData = ifft(binData(i,:));
-        % cyclic extend and guard-interval it % TODO: Find whether guard
-        % interval precedes OFDM symbols or if okay.
-        cycData(i,:) = [ifftData, ifftData(1:(numSubCarrier/4)), zeros(1,numSubCarrier/4)];
+        % cyclic extend and guard-interval it
+        cycData(i,:) = [ifftData((0.75*numSubCarrier+1):numSubCarrier), ifftData, zeros(1,(1.25*numSubCarrier)/5)];
     end
     serOfdmSig = reshape(cycData', 1, []);
  end
 
 %% Digital to analog conversion
- function [baseBandAnalog,t] = dac(baseBandSig, Fs)
-    % TODO: variable specification
-    baseBandSig = real(baseBandSig);
-    Ts = Fs^-1;
-    n = 1:length(baseBandSig);
-    nTs = n*Ts;
-    Dt = 5e-5;  % TODO: Figure whether I want this to change (Factor of?)
-    t = 0:Dt:(length(baseBandSig)*Ts);
-    baseBandAnalog = spline(nTs, baseBandSig, t);
+ function [baseBandAnalogI, baseBandAnalogQ, t] = dac(baseBandSig, Ts, ifftBinSize, Dt)
+    % TODO: Specify symbol duration
+    baseBandSigI = real(baseBandSig);
+    % TODO: Include quadrature component
+    baseBandSigQ = imag(baseBandSig);
+    n = 0:length(baseBandSig)-1;
+    nTs = ifftBinSize(2)*(n*Ts)/length(baseBandSig);    % No of OFDM symbols x normalized symbol duration
+    % TODO: Pass Dt(Sampling frequency of analog domain): Dt^-1 > 2*fc
+    % Dt = 5e-10;
+    t = 0:Dt:max(nTs);%ifftBinSize(2)*20*Ts;
+    baseBandAnalogI = spline(nTs, baseBandSigI, t);
+    baseBandAnalogQ = spline(nTs, baseBandSigQ, t);
  end
 
 %% Frequency upscaling for pass band 
- function bandPassSig = freqUpScale(baseBandAnalog, fc, t)
-    bandPassSig = baseBandAnalog.*(2*pi*cos(fc*t));
+ function bandPassSig = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt)
+    % Mixing to get cos(fc+fm) + cos(fc-fm)
+    mixedSig = baseBandAnalogI.*(2*pi*cos(fc*t)) + baseBandAnalogQ.*(2*pi*sin(fc*t));
+    % High pass filter to get RF signal
+    % TODO: Find arithmetically competent sweet spot for fs. While true, practicality is questionable
+    fs = Dt^-1;
+    bandPassSig = highpass(mixedSig, fc, fs);
  end
