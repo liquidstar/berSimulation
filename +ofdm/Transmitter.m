@@ -44,8 +44,8 @@ end
 
 %% BPSK Modulation
  function bauds = mapBits(bitArray)
-    symAlph = [-1 1];
-    bauds = symAlph(bitArray + 1);
+    %symAlph = [-1 1];
+    bauds = (bitArray - 0.5);
  end
 
 %% Map symbols to IFFT bins
@@ -76,7 +76,7 @@ end
         % ifft it
         ifftData = ifft(binData(i,:));
         % cyclic extend and guard-interval it
-        cycData(i,:) = [ifftData((0.75*numSubCarrier+1):numSubCarrier), ifftData, zeros(1,(1.25*numSubCarrier)/5)];
+        cycData(i,:) = [ifftData((0.75*numSubCarrier+1):numSubCarrier), ifftData, zeros(1,0.25*numSubCarrier)];
     end
     serOfdmSig = reshape(cycData', 1, []);
  end
@@ -99,9 +99,10 @@ end
 %% Frequency upscaling for pass band 
  function bandPassSig = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt)
     % Mixing to get cos(fc+fm) + cos(fc-fm)
-    mixedSig = baseBandAnalogI.*(2*pi*cos(fc*t)) + baseBandAnalogQ.*(2*pi*sin(fc*t));
+    mixedSig = baseBandAnalogI.*(cos(fc*t)) + baseBandAnalogQ.*(sin(fc*t));
     % High pass filter to get RF signal
     % TODO: Find arithmetically competent sweet spot for fs. While true, practicality is questionable
     fs = Dt^-1;
-    bandPassSig = highpass(mixedSig, fc, fs);
+    % Applying amplification
+    bandPassSig = 1e4*highpass(mixedSig, fc, fs);
  end

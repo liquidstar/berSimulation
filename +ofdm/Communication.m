@@ -7,7 +7,7 @@ classdef Communication
         transmitter
         channel
         receiver
-        berEval
+        evaluator
     end
     
     methods
@@ -21,8 +21,9 @@ classdef Communication
             % Create a channel object: Noisy, faded signal
             comm.channel = ofdm.Channel(comm.transmitter.passBandAnalog, channelType);
             % Create a receiver object: Demodulated data
-            comm.receiver = ofdm.Receiver(comm.channel.noisySignal, comm.transmitter.analogTimeBase, ofdmVariant, symbolTime, centerFreq);
+            comm.receiver = ofdm.Receiver(comm.channel.noisySignal, comm.transmitter.analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval);
             % Create a recepient object: rece serial data
+            %comm.evaluator = ofdm.Evaluator(comm.dataSource, ofdmVariant, comm.transmitter, comm.channel, comm.receiver);
         end
      
     end

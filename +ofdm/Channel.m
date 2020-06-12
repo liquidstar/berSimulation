@@ -20,7 +20,7 @@ end
 
 %% Function to make AWGN Channel
 function noisySignal = addGaussianNoise(passBandAnalog)
-    noisySignal = passBandAnalog + 0.01*randn(size(passBandAnalog));
+    noisySignal = passBandAnalog + 0.5*randn(size(passBandAnalog));
 end
 
 %% Function to implement Rayleigh Fading
