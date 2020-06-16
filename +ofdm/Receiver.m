@@ -15,9 +15,9 @@ classdef Receiver
     
     methods
         % comm.channel.noisySignal, comm.transmitter.analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval
-        function rece = Receiver(noisyPassBandOfdm, analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval)
+        function rece = Receiver(noisyPassBandOfdm, channelCharacterization, analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval)
             % Frequency DownConversion
-            [rece.noisyBaseI, rece.noisyBaseQ] = freqDownScale(noisyPassBandOfdm, centerFreq, analogTimeBase, samplingInterval);
+            [rece.noisyBaseI, rece.noisyBaseQ] = freqDownScale(noisyPassBandOfdm,  channelCharacterization, centerFreq, analogTimeBase, samplingInterval);
             % Analog to Digital
             [rece.digitalI, rece.digitalQ, numSym] = adc(ofdmVariant, rece.noisyBaseI, rece.noisyBaseQ, analogTimeBase, symbolTime);
             % Strip Gurad Interval and Cyclic Extension
@@ -34,7 +34,8 @@ classdef Receiver
 end
 
 %% Frequency Down-conversion
-function [recNoisyBaseI, recNoisyBaseQ] = freqDownScale(noisyPassBand, fc,t,Dt)
+function [recNoisyBaseI, recNoisyBaseQ] = freqDownScale(noisyPassBand,h,fc,t,Dt)
+    noisyPassBand = noisyPassBand./h;
     recMixI = noisyPassBand.*cos(fc*t);
     recMixQ = noisyPassBand.*sin(fc*t);
     fs = Dt^-1;
@@ -68,6 +69,9 @@ function recSerOfdm = ofdmDemux(recDigI, recDigQ, ofdmVariant, numSym)
         nullIndices = find(thisIQDiff<0.01);
         nullContig = diff(nullIndices);
         % Folded loop to find contiguous nulls
+        if isempty(nullContig)
+            guardIndex = 0;
+        end
         for j = 1:length(nullContig)
             if (j+14) <= length(nullContig)
                 testRange = nullContig(j:j+14);

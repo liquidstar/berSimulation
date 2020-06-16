@@ -3,6 +3,7 @@ classdef Transmitter
     %   Inherited by modulator and IFFT module (probably)
     properties
         subCarrierConfig
+        signalAmplitude
         parBauds
         serBauds
         binData
@@ -14,9 +15,10 @@ classdef Transmitter
         analogTimeBase
     end
     methods
-        function trans = Transmitter(serData, ofdmVariant, symbolTime, centerFreq, samplingInterval)
+        function trans = Transmitter(serData, ofdmVariant, symbolTime, centerFreq, samplingInterval, sigAmp)
             trans.subCarrierConfig = [sum(ofdmVariant(:) == 'd') sum(ofdmVariant(:) == 'p') sum(ofdmVariant(:) == 'v')];
             trans.centerFreq = centerFreq;
+            trans.signalAmplitude = sigAmp;
             % serData to modulator (serial)
             trans.serBauds = mapBits(serData);
             % serBauds to parBauds (parallel)
@@ -30,7 +32,7 @@ classdef Transmitter
             % serOfdmData to Analog (serial)
             [trans.baseBandAnalogI,trans.baseBandAnalogQ,trans.analogTimeBase] = dac(trans.baseBandOfdmSig, symbolTime, size(trans.binData), samplingInterval);
             % Upscale frequency to RF
-            trans.passBandAnalog = freqUpScale(trans.baseBandAnalogI, trans.baseBandAnalogQ, trans.centerFreq, trans.analogTimeBase, samplingInterval);
+            trans.passBandAnalog = freqUpScale(trans.baseBandAnalogI, trans.baseBandAnalogQ, trans.centerFreq, trans.analogTimeBase, samplingInterval, sigAmp);
         end    
     end
 end
@@ -97,12 +99,11 @@ end
  end
 
 %% Frequency upscaling for pass band 
- function bandPassSig = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt)
+ function bandPassSig = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt, sigAmp)
     % Mixing to get cos(fc+fm) + cos(fc-fm)
     mixedSig = baseBandAnalogI.*(cos(fc*t)) + baseBandAnalogQ.*(sin(fc*t));
     % High pass filter to get RF signal
-    % TODO: Find arithmetically competent sweet spot for fs. While true, practicality is questionable
     fs = Dt^-1;
     % Applying amplification
-    bandPassSig = 1e4*highpass(mixedSig, fc, fs);
+    bandPassSig = sigAmp*highpass(mixedSig, fc, fs);
  end
