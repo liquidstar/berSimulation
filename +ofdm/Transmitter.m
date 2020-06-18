@@ -105,5 +105,5 @@ end
     % High pass filter to get RF signal
     fs = Dt^-1;
     % Applying amplification
-    bandPassSig = sigAmp*highpass(mixedSig, fc, fs);
+    bandPassSig = 5000*sigAmp*highpass(mixedSig, fc, fs);
  end

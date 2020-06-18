@@ -24,12 +24,12 @@ end
 function snrVector = findSnrs(commArray)
     commCount = length(commArray);
     sigVector = zeros(1,commCount);
-    noisVector = sigVector;
+    %noisVector = sigVector;
     for i = 1:commCount
         sigVector(i) = commArray(i).transmitter.signalAmplitude;
-        noisVector(i) = commArray(i).channel.noiseAmplitude;
+        %noisVector(i) = commArray(i).channel.noiseAmplitude;
     end
-    snrVector = sigVector./noisVector;
+    snrVector = sigVector;  %./noisVector;
 end
 
 %% PAPR Determination
@@ -54,6 +54,6 @@ function bers = findBers(commArray)
     for i = 1:commCount
         txData = commArray(i).dataSource.serialBits;
         rxData = commArray(i).receiver.serRecBits(1:length(txData));
-        bers(i) = sum(rxData ~= txData);
+        bers(i) = sum(rxData ~= txData)/length(txData);
     end
 end

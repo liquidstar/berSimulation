@@ -10,7 +10,7 @@ classdef Communication
     end
     
     methods
-        function comm = Communication(bitCount, ofdmVariant, symbolTime, centerFreq, samplingInterval, channelType, sigAmp, noisAmp)
+        function comm = Communication(bitCount, ofdmVariant, symbolTime, centerFreq, samplingInterval, channelType, sigAmp)
             if nargin == 0
                 return
             end
@@ -21,7 +21,7 @@ classdef Communication
             % Create a transmitter object: OFDM signal
             comm.transmitter = ofdm.Transmitter(comm.dataSource.serialBits, ofdmVariant, symbolTime, centerFreq, samplingInterval, sigAmp);
             % Create a channel object: Noisy, faded signal
-            comm.channel = ofdm.Channel(comm.transmitter.passBandAnalog, noisAmp, channelType);
+            comm.channel = ofdm.Channel(comm.transmitter.passBandAnalog, sigAmp, channelType);
             % Create a receiver object: Demodulated data
             comm.receiver = ofdm.Receiver(comm.channel.noisySignal, comm.channel.channelCharacterization, comm.transmitter.analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval);
             % Create a recepient object: rece serial data
