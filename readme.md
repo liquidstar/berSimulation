@@ -1,6 +1,11 @@
 # Overdue Readme
 ---
-So I've finally decided to start working. This isn't the proudest I've been of myself. This needs to get done.
+So I've finally decided to start working. This isn't the proudest I've been of myself. This needs to get done. `19/06/2020` Objectives of the project:
+- [X] A working OFDM communication simulator.
+- [X] Over an AWGN Channel
+- [ ] Over a Rayleigh Fading Channel
+- [ ] Over a Rician Fading Channel
+- [ ] An intelligent interface.
 
 ### Directory structure
 ---

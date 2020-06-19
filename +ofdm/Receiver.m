@@ -1,26 +1,24 @@
 classdef Receiver
     % Get Noisy OFDM signal from channel, give decoded message
-    % Inheritance?
     properties
-        noisyBaseI
-        noisyBaseQ
-        digitalI
-        digitalQ
-        serOfdmSig
-        parRecBauds
-        binRecBauds
-        parRecSymb
-        serRecBits
+        noisyBaseI  % Freq down-conversion products
+        noisyBaseQ  %
+        digitalI    % ADC products
+        digitalQ    %
+        serOfdmSig  % Combined I and Q signals
+        parRecBauds % FFT product
+        binRecBauds %
+        parRecSymb  % 
+        serRecBits  % Communication output
     end
     
     methods
-        % comm.channel.noisySignal, comm.transmitter.analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval
         function rece = Receiver(noisyPassBandOfdm, channelCharacterization, analogTimeBase, ofdmVariant, symbolTime, centerFreq, samplingInterval)
             % Frequency DownConversion
             [rece.noisyBaseI, rece.noisyBaseQ] = freqDownScale(noisyPassBandOfdm,  channelCharacterization, centerFreq, analogTimeBase, samplingInterval);
             % Analog to Digital
             [rece.digitalI, rece.digitalQ, numSym] = adc(ofdmVariant, rece.noisyBaseI, rece.noisyBaseQ, analogTimeBase, symbolTime);
-            % Strip Gurad Interval and Cyclic Extension
+            % Strip guard Interval and Cyclic prefix
             rece.serOfdmSig = ofdmDemux(rece.digitalI, rece.digitalQ, ofdmVariant, numSym);
             % FFT Operation
             rece.parRecBauds = unMapBauds(rece.serOfdmSig, ofdmVariant);
@@ -28,8 +26,7 @@ classdef Receiver
             [rece.binRecBauds, rece.parRecSymb] = pilotSync(rece.parRecBauds, ofdmVariant);
             % BPSK Demodulation
             rece.serRecBits = unMapBits(rece.parRecSymb);
-        end
-        
+        end        
     end
 end
 
@@ -45,11 +42,11 @@ end
 
 %% Analog to digital conversion
 function [recDigI, recDigQ, numSym] = adc(ofdmVariant, recNoisyBaseI, recNoisyBaseQ, t, Ts)
-    % I have the downconverted baseband samples, its duration and symbol duration, therefore I have number of symbols.
     numSym = ceil(max(t)/Ts);
-    % I also have the ofdmVariant which will tell me expected sample count per symbol
+    % Samples per symbol dependent on variant
+    % TODO: Make this aspect programmable
     sampPerSym = 1.2*(1.25*length(ofdmVariant));
-    % Expected sample count of conversion = numSym * sampPerSym
+    % Sampling interval = n * numSym * sampPerSym
     samples = floor(linspace(1,length(t),numSym*sampPerSym));
     % And now to convert to digital
     recDigI = recNoisyBaseI(samples);
@@ -65,11 +62,13 @@ function recSerOfdm = ofdmDemux(recDigI, recDigQ, ofdmVariant, numSym)
     for i = 0:numSym-1
         thisSymbI = recDigI(i*symbLength+1:(i+1)*symbLength);
         thisSymbQ = recDigQ(i*symbLength+1:(i+1)*symbLength);
+        % Locating the guard interval (in case of phase shift)
         thisIQDiff = abs(thisSymbI+thisSymbQ)/2;
         nullIndices = find(thisIQDiff<0.01);
         nullContig = diff(nullIndices);
         % Folded loop to find contiguous nulls
         if isempty(nullContig)
+            % TODO: Find what this condition represents
             guardIndex = 0;
         end
         for j = 1:length(nullContig)
@@ -89,13 +88,15 @@ function recSerOfdm = ofdmDemux(recDigI, recDigQ, ofdmVariant, numSym)
                 break
             end
         end
-        % Loop to extract unprotected symbol (Check guardStartIndex. If less than min, assume no shift)
+        % Protection against undetected guard interval
         if guardIndex == 0
             guardStartIndex = ofdmSize;
         else
             guardStartIndex = nullIndices(guardIndex);
         end
         symbEndIndex = guardStartIndex - 1;
+        % TODO: Verify relevance of this logic
+        % Loop to extract unprotected symbol (Check guardStartIndex. If less than min, assume no shift)
         if guardStartIndex <= 1.25*ofdmSize
             recSerOfdm(i*ofdmSize+1:(i+1)*ofdmSize) = thisSymbI((0.25*ofdmSize+1):1.25*ofdmSize) + 1i*thisSymbQ((0.25*ofdmSize+1):1.25*ofdmSize);
         else
@@ -110,6 +111,7 @@ function noisyBauds = unMapBauds(serOfdmSig, ofdmVariant)
     noisyBauds = fft(fftBins);
     [len, ~] = size(noisyBauds);
     finalNoisyBauds = 0*noisyBauds;
+    % Roll FFT product rows (Goes 2 down)
     for i = 1:len
         if i+2 > len
             j = (i+2)-len;
@@ -136,6 +138,6 @@ end
 %% BPSK Demodulation
 function serRecBits = unMapBits(parRecSymb)
     serRecSymb = reshape(parRecSymb, 1, []);
-    % Truncate invalid symbols out // Prone to introducing errors
+    % Truncate invalid symbols out // Prone to introducing errors so emitted assuming no knowledge about transmitted data
     serRecBits = serRecSymb > 0;
 end

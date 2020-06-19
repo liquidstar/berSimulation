@@ -15,8 +15,9 @@ classdef Evaluator
             eval.paprs = findPapr(eval.commArray);
             % Determine Bit Error Rate
             eval.bitErrors = findBers(eval.commArray);
-            % Maybe plot some impressive curves and shit.
         end
+        % Maybe plot some impressive curves and shit.
+        % TODO: Save simulation data to file
     end
 end
 

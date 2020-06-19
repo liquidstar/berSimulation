@@ -4,14 +4,16 @@ clc;clear;
 %% A word about ofdmVariant: It's the subcarrier config
 % Proto example: "vvvdddvdddvv"
 ieee80211 = carrierMap('vdpdpdvdpdpdv', [5 5 1 13 1 6 1 6 1 13 1 5 6]);
-sigAmp = 1:19;
+sigAmp = 1:1:30;
+% TODO: Ask for user input to supply program variables
+
 
 %% Creation of communication instances and associated data
 % Preallocating communication array
 commCount = length(sigAmp);
 commArray = repelem(ofdm.Communication(),commCount);
 for i = 1:commCount
-    commArray(i) = ofdm.Communication(100, ieee80211, 4e-6, 2.4e9, .49*(2.4e9)^-1, "gauss", sigAmp(i));    
+    commArray(i) = ofdm.Communication(1000, ieee80211, 4e-6, 2.4e9, .49*(2.4e9)^-1, "rayl", sigAmp(i), 15);    
     showProgress(i,commCount);
 end
 fprintf('\n');
