@@ -3,19 +3,22 @@ classdef Channel
     % Add noise and implement fading(Rayleigh or Rice)
     properties
         noisySignal                 % Signal post fading and AWGN
-        noiseVariance               % TODO: Figure this out
+        % noiseVariance               % TODO: Figure this out
         channelCharacterization     % Channel Transfer function for equalization
     end
     
     methods
-        function link = Channel(passBandAnalog, sigAmp, speculardB, type, t, Ts)
-            link.noiseVariance = 10^-(sigAmp/10);
+        function link = Channel(transmitter, sigAmp, speculardB, type)
+            passBandAnalog = sigAmp*transmitter.passBandAnalog;
+            t = transmitter.analogTimeBase;
+            Ts = transmitter.symbolTime;
+            No = 10^-(sigAmp/10);
             if type == "gauss"
-                [link.noisySignal, link.channelCharacterization] = addGaussianNoise(passBandAnalog, link.noiseVariance);
+                [link.noisySignal, link.channelCharacterization] = addGaussianNoise(passBandAnalog, No);
             elseif type == "rayl"
-                [link.noisySignal, link.channelCharacterization] = rayleighFading(passBandAnalog, link.noiseVariance, t, Ts);
+                [link.noisySignal, link.channelCharacterization] = rayleighFading(passBandAnalog, No, t, Ts);
             elseif type == "rice"
-                [link.noisySignal, link.channelCharacterization] = ricianFading(passBandAnalog, speculardB, link.noiseVariance, t, Ts);
+                [link.noisySignal, link.channelCharacterization] = ricianFading(passBandAnalog, speculardB, No, t, Ts);
             end
         end
     end
@@ -41,7 +44,7 @@ function [fadedSignal, channelChar] = rayleighFading(passBandAnalog, No, t, Ts)
     if n ~= m
         channelChar = [channelChar repelem(channelChar(m), n - m)];
     end
-    fadedSignal = passBandAnalog.*channelChar + (randn(1,n) + 1i*randn(1,n));
+    fadedSignal = passBandAnalog.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
     % TODO: Figure out the place of No in all this
 end
 
@@ -58,6 +61,6 @@ function [fadedSignal, channelChar] = ricianFading(passBandAnalog, speculardB, N
     if n ~= m
         channelChar = [channelChar repelem(channelChar(m), n - m)];
     end
-    fadedSignal = passBandAnalog.*channelChar + (randn(1,n) + 1i*randn(1,n));
+    fadedSignal = passBandAnalog.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
     % TODO: Noise Variance?
 end
