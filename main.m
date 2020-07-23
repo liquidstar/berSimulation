@@ -20,7 +20,7 @@ commCount = length(sigAmp);
 eval = ofdm.Evaluator(transmitter);
 % commArray = repelem(ofdm.Transmission(),commCount);
 for i = 1:commCount
-    comm = ofdm.Transmission(transmitter, sigAmp(i), KdB, "gauss");
+    comm = ofdm.Transmission(transmitter, sigAmp(i), KdB, "rayl");
     showProgress(i,commCount);
     eval = eval.getBer(dataSource, comm);
     clear comm;

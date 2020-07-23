@@ -11,14 +11,17 @@ classdef Transmission
                 % Allow 'underloading' for array initialization.
                 return
             end
+            % Save some memory by reducing precision
             t = transmitter.analogTimeBase;
-            Ts = transmitter.symbolTime;
-            fc = transmitter.centerFreq;
+            Ts = single(transmitter.symbolTime);
+            fc = single(transmitter.centerFreq);
+            Dt = single(transmitter.samplingInterval);
+            %--------------
             ofdmVariant = transmitter.variant;
-            Dt = transmitter.samplingInterval;
             link = ofdm.Channel(transmitter, sigAmp, speculardB, type);
             noisyPassBand = link.noisySignal;
             h = link.channelCharacterization;
+            clear link;
             comm.rece = ofdm.Receiver(noisyPassBand, h, t, ofdmVariant, Ts, fc, Dt);
         end
     end

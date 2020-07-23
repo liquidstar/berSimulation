@@ -14,12 +14,21 @@ classdef Receiver
     
     methods
         function rece = Receiver(noisyPassBandOfdm, h, t, ofdmVariant, Ts, fc, Dt)
+            % noisyPassBandOfdm = single(noisyPassBandOfdm);
+            % h = single(h);
+            % Ts = single(Ts);
+            % fc = single(fc);
+            % Dt = single(Dt);
+            % t = single(t);
             % Frequency DownConversion
             [noisyBaseI, noisyBaseQ] = freqDownScale(noisyPassBandOfdm,  h, fc, t, Dt);
             % Analog to Digital
-            [digitalI, digitalQ, numSym] = adc(ofdmVariant, noisyBaseI, noisyBaseQ, t, Ts);
+            [digitalI, digitalQ, symbCount] = adc(ofdmVariant, noisyBaseI, noisyBaseQ, t, Ts);
+            % - - - Removing unneeeded heavies - - -
+            clear t noisyBaseI noisyBaseQ noisyPassBandOfdm;
             % Strip guard Interval and Cyclic prefix
-            rece.serOfdmSig = ofdmDemux(digitalI, digitalQ, ofdmVariant, numSym);
+            rece.serOfdmSig = ofdmDemux(digitalI, digitalQ, ofdmVariant, symbCount);
+            clear digitalI digitalQ;
             % FFT Operation
             parRecBauds = unMapBauds(rece.serOfdmSig, ofdmVariant);
             % Adjust parRecBauds according to pilots and Extracting symbols from FFT bins
