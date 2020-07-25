@@ -6,25 +6,26 @@ classdef Transmitter
         % parBauds            % Symbols paralleled
         % serBauds            % 
         % binData             % Bauds organized into bins according to 'ofdmVariant'
+        rfFlag              % Whether to freq-upscale
         baseBandOfdmSig     % Serialized IFFT product with Cyclic and guard extension
         % baseBandAnalogI     % In-phase
         % baseBandAnalogQ     % Quadrature
         centerFreq          % RF center frequency
         passBandAnalog      % RF OFDM signal
-        analogTimeBase      %
+        nTs                 % symbCount x symbolTime
         symbolTime
         variant
         samplingInterval
     end
     methods
         % function trans = Transmitter(serData, ofdmVariant, symbolTime, centerFreq, samplingInterval, sigAmp)
-        function trans = Transmitter(dataSource, ofdmVariant, Ts, fc, Dt)
+        function trans = Transmitter(rf, dataSource, ofdmVariant, Ts, fc, Dt)
             % subCarrierConfig = [sum(ofdmVariant(:) == 'd') sum(ofdmVariant(:) == 'p') sum(ofdmVariant(:) == 'v')];
+            trans.rfFlag = rf;
             trans.symbolTime = Ts;
             trans.centerFreq = fc;
             trans.variant = ofdmVariant;
             trans.samplingInterval = Dt;
-            % trans.signalAmplitude = sigAmp;
             % serData to modulator (serial)
             serBauds = mapBits(dataSource.serialBits);
             % serBauds to parBauds :: Determined by number of data subcarriers
@@ -33,10 +34,12 @@ classdef Transmitter
             binData = binBauds(parBauds, ofdmVariant);
             % binData -> IFFT -> Cyclic prefix -> Guard Interval -> Serialized
             trans.baseBandOfdmSig = ofdmMux(binData);
-            % complex basebandOfdm -> I and Q -> Analog I and Q
-            [baseBandAnalogI,baseBandAnalogQ,trans.analogTimeBase] = dac(trans.baseBandOfdmSig, Ts, size(binData), Dt);
-            % Upscale frequency to RF
-            trans.passBandAnalog = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, trans.analogTimeBase, Dt);
+            if (trans.rfFlag)
+                % complex basebandOfdm -> I and Q -> Analog I and Q
+                [baseBandAnalogI,baseBandAnalogQ,t,trans.nTs] = dac(trans.baseBandOfdmSig, Ts, size(binData), Dt);
+                % Upscale frequency to RF
+                trans.passBandAnalog = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt);
+            end
         end    
     end
 end
@@ -77,20 +80,20 @@ end
 %% Operate on binned symbols, give baseband signal
  function serOfdmSig = ofdmMux(binData)
     binData = binData';
-    % Add cyclic prefix(25%) and guard interval(20% for 802.11)
+    % TODO: Customizable CP & GI
     [symbCount, ofdmSize] = size(binData);
     cycData = (zeros(symbCount,1.5*ofdmSize));
     for i = 1:symbCount
         % ifft per symbol
         ifftData = ifft(binData(i,:));
         % cyclic prefix and guard-interval it
-        cycData(i,:) = [ifftData((0.75*ofdmSize+1):ofdmSize), ifftData, zeros(1,0.25*ofdmSize)];
+        cycData(i,:) = [ifftData((0.75*ofdmSize+1):ofdmSize), ifftData, zeros(1,0.25*ofdmSize)];        % TODO: Customizable CP & GI
     end
     serOfdmSig = reshape(cycData', 1, []);
  end
 
 %% Digital to analog conversion
- function [baseBandAnalogI, baseBandAnalogQ, t] = dac(baseBandSig, Ts, ifftBinSize, Dt)
+ function [baseBandAnalogI, baseBandAnalogQ, t, nTsMax] = dac(baseBandSig, Ts, ifftBinSize, Dt)
     % In-phase component
     baseBandSigI = real(baseBandSig);
     % Quadrature component
@@ -99,8 +102,9 @@ end
     n = 0:length(baseBandSig)-1;
     % distribute samples over multiples (Symbol count x symbol duration) :: (numSym * nTs)
     nTs = ifftBinSize(2)*(n*Ts)/length(baseBandSig);
+    nTsMax = max(nTs);
     % Interpolation intervals for DAC up to nTs
-    t = 0:Dt:max(nTs);
+    t = 0:Dt:nTsMax;
     % Spline interpolation of I and Q signals (DAC conversion)
     baseBandAnalogI = spline(nTs, baseBandSigI, t);
     baseBandAnalogQ = spline(nTs, baseBandSigQ, t);

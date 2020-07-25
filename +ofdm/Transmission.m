@@ -12,17 +12,18 @@ classdef Transmission
                 return
             end
             % Save some memory by reducing precision
-            t = transmitter.analogTimeBase;
+            t = transmitter.nTs;
             Ts = single(transmitter.symbolTime);
             fc = single(transmitter.centerFreq);
-            Dt = single(transmitter.samplingInterval);
+            Dt = transmitter.samplingInterval;
+            rfFlag = transmitter.rfFlag;
             %--------------
             ofdmVariant = transmitter.variant;
             link = ofdm.Channel(transmitter, sigAmp, speculardB, type);
-            noisyPassBand = link.noisySignal;
+            noisySignal = link.noisySignal;
             h = link.channelCharacterization;
             clear link;
-            comm.rece = ofdm.Receiver(noisyPassBand, h, t, ofdmVariant, Ts, fc, Dt);
+            comm.rece = ofdm.Receiver(rfFlag, noisySignal, h, t, ofdmVariant, Ts, fc, Dt);
         end
     end
 end

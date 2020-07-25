@@ -13,7 +13,7 @@ classdef Receiver
     end
     
     methods
-        function rece = Receiver(noisyPassBandOfdm, h, t, ofdmVariant, Ts, fc, Dt)
+        function rece = Receiver(rfFlag, noisySignal, h, nTs, ofdmVariant, Ts, fc, Dt)
             % noisyPassBandOfdm = single(noisyPassBandOfdm);
             % h = single(h);
             % Ts = single(Ts);
@@ -21,11 +21,19 @@ classdef Receiver
             % Dt = single(Dt);
             % t = single(t);
             % Frequency DownConversion
-            [noisyBaseI, noisyBaseQ] = freqDownScale(noisyPassBandOfdm,  h, fc, t, Dt);
-            % Analog to Digital
-            [digitalI, digitalQ, symbCount] = adc(ofdmVariant, noisyBaseI, noisyBaseQ, t, Ts);
-            % - - - Removing unneeeded heavies - - -
-            clear t noisyBaseI noisyBaseQ noisyPassBandOfdm;
+            noisySignal = channelEq(noisySignal, h);
+            if (rfFlag)
+                t = 0:Dt:nTs;
+                [noisyBaseI, noisyBaseQ] = freqDownScale(noisySignal, fc, t, Dt);
+                % Analog to Digital
+                [digitalI, digitalQ, symbCount] = adc(ofdmVariant, noisyBaseI, noisyBaseQ, t, Ts);
+                % - - - Removing unneeeded heavies - - -
+                clear t noisyBaseI noisyBaseQ noisyPassBandOfdm;
+            else
+                digitalI = real(noisySignal);
+                digitalQ = imag(noisySignal);
+                symbCount = length(digitalI)/(1.5*length(ofdmVariant));
+            end
             % Strip guard Interval and Cyclic prefix
             rece.serOfdmSig = ofdmDemux(digitalI, digitalQ, ofdmVariant, symbCount);
             clear digitalI digitalQ;
@@ -38,13 +46,15 @@ classdef Receiver
         end        
     end
 end
-
+%% Channel Equalization
+function eqSignal = channelEq(noisySignal, h)
+    eqSignal = noisySignal./h;
+end
 %% Frequency Down-conversion
-function [recNoisyBaseI, recNoisyBaseQ] = freqDownScale(noisyPassBand,h,fc,t,Dt)
-    % Channel equalization?
-    noisyPassBand = noisyPassBand./h;
-    recMixI = noisyPassBand.*cos(fc*t);
-    recMixQ = noisyPassBand.*sin(fc*t);
+function [recNoisyBaseI, recNoisyBaseQ] = freqDownScale(noisySignal,fc,t,Dt)
+    % Channel equalization
+    recMixI = noisySignal.*cos(fc*t);
+    recMixQ = noisySignal.*sin(fc*t);
     fs = Dt^-1;
     recNoisyBaseI = lowpass(recMixI, 1e-1*fc, fs);
     recNoisyBaseQ = lowpass(recMixQ, 1e-1*fc, fs);
@@ -55,7 +65,7 @@ function [recDigI, recDigQ, numSym] = adc(ofdmVariant, recNoisyBaseI, recNoisyBa
     numSym = ceil(max(t)/Ts);
     % Samples per symbol dependent on variant
     % TODO: Make this aspect programmable
-    sampPerSym = 1.2*(1.25*length(ofdmVariant));
+    sampPerSym = 1.2*(1.25*length(ofdmVariant));        % TODO: Customizable CP & GI
     % Sampling interval = n * numSym * sampPerSym
     samples = floor(linspace(1,length(t),numSym*sampPerSym));
     % And now to convert to digital
@@ -64,54 +74,14 @@ function [recDigI, recDigQ, numSym] = adc(ofdmVariant, recNoisyBaseI, recNoisyBa
 end
 
 %% Removing Guard interval and cyclic extension
-function recSerOfdm = ofdmDemux(recDigI, recDigQ, ofdmVariant, numSym)
+function recSerOfdm = ofdmDemux(recDigI, recDigQ, ofdmVariant, symbCount)
     % pick out sequences of symbLength from recDigI and recDigQ
     ofdmSize = length(ofdmVariant);
-    symbLength = 1.2*1.25*ofdmSize;
-    recSerOfdm = zeros(1,numSym*ofdmSize);
-    for i = 0:numSym-1
+    symbLength = 1.2*1.25*ofdmSize;        % TODO: Customizable CP & GI
+    recSerOfdm = zeros(1,symbCount*ofdmSize);
+    for i = 0:symbCount-1
         thisSymbI = recDigI(i*symbLength+1:(i+1)*symbLength);
         thisSymbQ = recDigQ(i*symbLength+1:(i+1)*symbLength);
-%         % Locating the guard interval (in case of phase shift)
-%         thisIQDiff = abs(thisSymbI+thisSymbQ)/2;
-%         nullIndices = find(thisIQDiff<0.01);
-%         nullContig = diff(nullIndices);
-%         % Folded loop to find contiguous nulls
-%         if isempty(nullContig)
-%             % TODO: Find what this condition represents
-%             guardIndex = 0;
-%         end
-%         for j = 1:length(nullContig)
-%             if (j+14) <= length(nullContig)
-%                 testRange = nullContig(j:j+14);
-%             elseif length(nullContig) < 15  % Impossible to locate guard interval (Due to noise)
-%                 guardIndex = 0;
-%                 break
-%             else
-%                 testRange = [nullContig(j:length(nullContig)) nullContig(1:14-(length(nullContig)-j))];
-%             end
-%             if testRange == ones(1,15)
-%                 guardIndex = j;
-%                 break
-%             else
-%                 guardIndex = 0;
-%                 break
-%             end
-%         end
-%         % Protection against undetected guard interval
-%         if guardIndex == 0
-%             guardStartIndex = ofdmSize;
-%         else
-%             guardStartIndex = nullIndices(guardIndex);
-%         end
-%         symbEndIndex = guardStartIndex - 1;
-%         % TODO: Verify relevance of this logic
-%         % Loop to extract unprotected symbol (Check guardStartIndex. If less than min, assume no shift)
-%         if guardStartIndex <= 1.25*ofdmSize
-%             recSerOfdm(i*ofdmSize+1:(i+1)*ofdmSize) = thisSymbI((0.25*ofdmSize+1):1.25*ofdmSize) + 1i*thisSymbQ((0.25*ofdmSize+1):1.25*ofdmSize);
-%         else
-%             recSerOfdm(i*ofdmSize+1:(i+1)*ofdmSize) = thisSymbI((symbEndIndex-ofdmSize+1):symbEndIndex) + 1i*thisSymbQ((symbEndIndex-ofdmSize+1):symbEndIndex);
-%         end
         recSerOfdm(i*ofdmSize+1:(i+1)*ofdmSize) = thisSymbI((0.25*ofdmSize+1):1.25*ofdmSize) + 1i*thisSymbQ((0.25*ofdmSize+1):1.25*ofdmSize);
      end 
 end
@@ -141,9 +111,9 @@ end
 function [parRecSymb] = pilotSync(parRecBauds, ofdmVariant)
     % Find the mean of pilot subcarrier for every symbol
     %meanPilot = mean(mean(parRecBauds(ofdmVariant == 'p',:)));
-     [~,numSym] = size(parRecBauds);
+     [~,symbCount] = size(parRecBauds);
      parRecBauds = parRecBauds';
-     for i = 1:numSym
+     for i = 1:symbCount
          meanPilot = mean(parRecBauds(i,ofdmVariant == 'p'));
          parRecBauds(i,:) = parRecBauds(i,:)./meanPilot;
      end
