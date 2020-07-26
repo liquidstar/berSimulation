@@ -9,8 +9,8 @@ fc = CLI.fc;
 KdB = CLI.KdB;
 channelType = CLI.channelType;
 variant = CLI.variant;
-
-sigAmp = 1:1:60;
+% vvvvdddddpdddddddddddddpddddddvddddddpdddddddddddddpdddddvvvvv
+sigAmp = 1:1:30;
 
 %% Simulation of Communication
 dataSource = ofdm.DataSource(bitCount);
