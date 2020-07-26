@@ -30,9 +30,13 @@ classdef Receiver
                 % - - - Removing unneeeded heavies - - -
                 clear t noisyBaseI noisyBaseQ noisyPassBandOfdm;
             else
+                ofdmSize = length(ofdmVariant.subCarriers);
+                cp = ofdmVariant.cycPrefix/100;
+                gi = ofdmVariant.guardInt/100;
                 digitalI = real(noisySignal);
                 digitalQ = imag(noisySignal);
-                symbCount = length(digitalI)/(1.5*length(ofdmVariant));
+                symbCount = length(digitalI)/(ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize));
+                clear ofdmSize cp gi;
             end
             % Strip guard Interval and Cyclic prefix
             rece.serOfdmSig = ofdmDemux(digitalI, digitalQ, ofdmVariant, symbCount);
@@ -61,13 +65,15 @@ function [recNoisyBaseI, recNoisyBaseQ] = freqDownScale(noisySignal,fc,t,Dt)
 end
 
 %% Analog to digital conversion
-function [recDigI, recDigQ, numSym] = adc(ofdmVariant, recNoisyBaseI, recNoisyBaseQ, t, Ts)
-    numSym = ceil(max(t)/Ts);
+function [recDigI, recDigQ, symbCount] = adc(ofdmVariant, recNoisyBaseI, recNoisyBaseQ, t, Ts)
+    symbCount = ceil(max(t)/Ts);
+    ofdmSize = length(ofdmVariant.subCarriers);
+    cp = ofdmVariant.cycPrefix/100;
+    gi = ofdmVariant.guardInt/100;
     % Samples per symbol dependent on variant
-    % TODO: Make this aspect programmable
-    sampPerSym = 1.2*(1.25*length(ofdmVariant));        % TODO: Customizable CP & GI
+    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);        % TODO: Customizable CP & GI
     % Sampling interval = n * numSym * sampPerSym
-    samples = floor(linspace(1,length(t),numSym*sampPerSym));
+    samples = floor(linspace(1,length(t),symbCount*symbLength));
     % And now to convert to digital
     recDigI = recNoisyBaseI(samples);
     recDigQ = recNoisyBaseQ(samples);
@@ -76,52 +82,44 @@ end
 %% Removing Guard interval and cyclic extension
 function recSerOfdm = ofdmDemux(recDigI, recDigQ, ofdmVariant, symbCount)
     % pick out sequences of symbLength from recDigI and recDigQ
-    ofdmSize = length(ofdmVariant);
-    symbLength = 1.2*1.25*ofdmSize;        % TODO: Customizable CP & GI
+    ofdmSize = length(ofdmVariant.subCarriers);
+    cp = ofdmVariant.cycPrefix/100;
+    gi = ofdmVariant.guardInt/100;
+    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);
     recSerOfdm = zeros(1,symbCount*ofdmSize);
+    prefixEnd = floor(cp*ofdmSize) + 1;
+    guardStart = ofdmSize + floor(cp*ofdmSize);%floor((1 + gi)*ofdmSize);    
     for i = 0:symbCount-1
         thisSymbI = recDigI(i*symbLength+1:(i+1)*symbLength);
         thisSymbQ = recDigQ(i*symbLength+1:(i+1)*symbLength);
-        recSerOfdm(i*ofdmSize+1:(i+1)*ofdmSize) = thisSymbI((0.25*ofdmSize+1):1.25*ofdmSize) + 1i*thisSymbQ((0.25*ofdmSize+1):1.25*ofdmSize);
+        recSerOfdm(i*ofdmSize+1:(i+1)*ofdmSize) = thisSymbI(prefixEnd: guardStart) + 1i*thisSymbQ(prefixEnd:guardStart);
      end 
 end
 
 %% Recover symbols from serial OFDM string
 function noisyBauds = unMapBauds(serOfdmSig, ofdmVariant)
-    fftBins = reshape(serOfdmSig, length(ofdmVariant), []);
-    noisyBauds = fft(fftBins);
-    [len, ~] = size(noisyBauds);
-    finalNoisyBauds = 0*noisyBauds;
-    % Roll FFT product rows (Goes 2 down)
-    for i = 1:len
-        if i+2 > len
-            j = (i+2)-len;
-            finalNoisyBauds(i,:) = noisyBauds(j,:);
-            if (i+2) == len
-                break;
-            end
-        else
-            finalNoisyBauds(i,:) = noisyBauds(i+2,:);
-        end
+    ofdmSize = length(ofdmVariant.subCarriers);
+    fftBins = (reshape(serOfdmSig, ofdmSize, []))';
+    % Need to FFT each column, thus $symbCount FFT operations
+    noisyBauds = zeros(size(fftBins));
+    for i = 1:length(fftBins)
+        noisyBauds(i,:) = fft(fftBins(i,:));
     end
-    noisyBauds = finalNoisyBauds;
+    noisyBauds = noisyBauds';
 end
 
 %% Synchronize parRecBauds to pilots and extract from bins
 function [parRecSymb] = pilotSync(parRecBauds, ofdmVariant)
     % Find the mean of pilot subcarrier for every symbol
-    %meanPilot = mean(mean(parRecBauds(ofdmVariant == 'p',:)));
-     [~,symbCount] = size(parRecBauds);
-     parRecBauds = parRecBauds';
-     for i = 1:symbCount
-         meanPilot = mean(parRecBauds(i,ofdmVariant == 'p'));
-         parRecBauds(i,:) = parRecBauds(i,:)./meanPilot;
-     end
-    % Multiply everything by the reciprocal of said mean
+    ofdmVariant = ofdmVariant.subCarriers;
+    [~,symbCount] = size(parRecBauds);
+    parRecBauds = parRecBauds';
+    for i = 1:symbCount
+        meanPilot = mean(parRecBauds(i,ofdmVariant == 'p'));
+        parRecBauds(i,:) = parRecBauds(i,:)./meanPilot;
+    end
     recBinBauds = parRecBauds';
-    parRecSymb = flip(recBinBauds(ofdmVariant == 'd',:));
-    %recBinBauds = real(meanPilot^-1*parRecBauds);
-    %parRecSymb = round(flip(recBinBauds(ofdmVariant == 'd',:)));
+    parRecSymb = recBinBauds(ofdmVariant == 'd',:);
 end
 
 %% BPSK Demodulation

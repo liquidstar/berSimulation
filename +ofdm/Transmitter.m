@@ -33,7 +33,7 @@ classdef Transmitter
             % bauData to IFFT bins :: Determined by 'ofdmVariant'
             binData = binBauds(parBauds, ofdmVariant);
             % binData -> IFFT -> Cyclic prefix -> Guard Interval -> Serialized
-            trans.baseBandOfdmSig = ofdmMux(binData);
+            trans.baseBandOfdmSig = ofdmMux(binData, ofdmVariant);
             if (trans.rfFlag)
                 % complex basebandOfdm -> I and Q -> Analog I and Q
                 [baseBandAnalogI,baseBandAnalogQ,t,trans.nTs] = dac(trans.baseBandOfdmSig, Ts, size(binData), Dt);
@@ -45,6 +45,7 @@ classdef Transmitter
 end
 %% S - P Conversion
 function parBauds = makeParallel(serBauds,ofdmVariant)
+    ofdmVariant = ofdmVariant.subCarriers;
     dataSubs = sum(ofdmVariant(:) == 'd');
     if (mod(length(serBauds),dataSubs) ~= 0)
         % Append zeros to make baud count a multiple of data subcarriers
@@ -61,6 +62,7 @@ end
 
 %% Map symbols to IFFT bins
  function bins = binBauds(baudMatrix, ofdmVariant)
+    ofdmVariant = ofdmVariant.subCarriers;
     [~, symbCount] = size(baudMatrix);
     % Total subcarriers x number of OFDM symbols
     bins = int8(zeros(length(ofdmVariant),symbCount));
@@ -78,16 +80,22 @@ end
  end
 
 %% Operate on binned symbols, give baseband signal
- function serOfdmSig = ofdmMux(binData)
+ function serOfdmSig = ofdmMux(binData, ofdmVariant)
+    %ofdmSize = length(ofdmVariant.subCarriers);
+    cp = ofdmVariant.cycPrefix/100;
+    gi = ofdmVariant.guardInt/100;
     binData = binData';
     % TODO: Customizable CP & GI
     [symbCount, ofdmSize] = size(binData);
-    cycData = (zeros(symbCount,1.5*ofdmSize));
+    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);
+    cycData = (zeros(symbCount,symbLength));
+    prefixStart = ofdmSize - floor(cp*ofdmSize) + 1;
+    guardSize = floor(gi*ofdmSize);
     for i = 1:symbCount
         % ifft per symbol
         ifftData = ifft(binData(i,:));
         % cyclic prefix and guard-interval it
-        cycData(i,:) = [ifftData((0.75*ofdmSize+1):ofdmSize), ifftData, zeros(1,0.25*ofdmSize)];        % TODO: Customizable CP & GI
+        cycData(i,:) = [ifftData(prefixStart:ofdmSize), ifftData, zeros(1,guardSize)];
     end
     serOfdmSig = reshape(cycData', 1, []);
  end

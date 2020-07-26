@@ -27,8 +27,17 @@ end
 
 %% PAPR Determination
 function papr = findPapr(transmitter)
+    ofdmSize = length(transmitter.variant.subCarriers);
+    cp = transmitter.variant.cycPrefix/100;
+    gi = transmitter.variant.guardInt/100;
+    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);
     queryWave = abs(transmitter.baseBandOfdmSig).^2;
-    peak = max(queryWave);
-    avg = mean(queryWave);
-    papr = peak/avg;
+    symbCount = length(queryWave)/symbLength;
+    peaks = zeros(1,symbCount); avgs = peaks;
+    for i = 0:symbCount-1
+        thisSymb = queryWave(i*symbLength+1:(i+1)*symbLength);
+        peaks(i+1) = max(thisSymb);
+        avgs(i+1) = mean(thisSymb);
+    end
+    papr = mean(peaks)/mean(avgs);
 end

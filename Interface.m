@@ -39,6 +39,8 @@ classdef Interface
                 fprintf('\t\t\t\t\tChannel Model\t|\tAWGN\n');
             end
             displayBanner(1);
+            renderVariant(CLI.variant);
+            displayBanner(1);
             showProgress(iter, commCount);
             fprintf('\n');
         end
@@ -46,7 +48,7 @@ classdef Interface
         function showReport(eval, snrVector)
             displayBanner(1);
             semilogy(snrVector, eval.bitErrors);
-            fprintf('PAPR: %.2f\n', eval.papr);
+            fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(eval.papr));
         end
     end
 end
@@ -79,30 +81,29 @@ end
 %% Parameter input function
 function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
     % Prompt user for bit count
-    bitCount = input("How many bits, boss?[100,000]");% int32(1e5);
+    bitCount = input("How many bits, boss?\n[100,000] > ");% int32(1e5);
     if isempty(bitCount)
         bitCount = 1e5;
     end
     % User selects OFDM variant
-    varChoice = input("Which OFDM variant would you like to use?\n (0).IEEE 802.11\n (1).Custom (Expert)\n [0]");
+    varChoice = input("Which OFDM variant would you like to use?\n (0).IEEE 802.11\n (1).Custom (Expert)\n (2).Express Debugger\n[0] > ");
     if isempty(varChoice) || varChoice == 0
-        variant = repelem('vdpdpdvdpdpdv', [5 5 1 13 1 6 1 6 1 13 1 5 6]);
+        variant = enterVariant(0);
     else
-        % enterVariant()
-        variant = repelem('vdpdpdvdpdpdv', [5 5 1 13 1 6 1 6 1 13 1 5 6]);
+        variant = enterVariant(varChoice);
     end
     % User decides whether transmission is over RF
-    rfFlag = logical(input("(0).Baseband or (1).Passband transmission?[0] "));
+    rfFlag = logical(input("(0).Baseband or (1).Passband transmission?\n[0] > "));
     if isempty(rfFlag)
         rfFlag = false;
     end
     % Passband parameters
     if rfFlag
-        Ts = input('Symbol duration[4 us] ');
+        Ts = input('Symbol duration:\n[4 us] > ');
         if isempty(Ts)
             Ts = 4e-6;
         end
-        fc = input('Carrier center frequency[2.4 GHz] ');
+        fc = input('Carrier center frequency\n[2.4 GHz] > ');
         if isempty(fc)
             fc = 2.4e9;
         end
@@ -112,7 +113,7 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
     end
     % Channel Parameters
     KdB = [];
-    channel = input('Channel type?\n    (1).AWGN\n    (2).Rayleigh\n    (3).Rician\n[1] ');
+    channel = input('Channel type?\n    (1).AWGN\n    (2).Rayleigh\n    (3).Rician\n[1] > ');
     if isempty(channel)
         channel = 1;
     end
@@ -122,7 +123,7 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
         channelType = "rayl";
     elseif channel == 3
         channelType = "rice";
-        KdB = single(input('Give me K in dB[0] '));
+        KdB = single(input('Give me K in dB\n[0] > '));
     end
     if isempty(KdB)
         KdB = 0;
@@ -156,3 +157,74 @@ function showProgress(i,commCount)
     fprintf("Progress: %.2f%% [%s]",100*i/commCount,progReport);
 end
 
+%% Enter Variant details
+function variant = enterVariant(varNo)
+    if varNo == 0
+        variant.subCarriers = repelem('vdpdpdvdpdpdv', [5 5 1 13 1 6 1 6 1 13 1 5 6]);
+        variant.cycPrefix = 25;
+        variant.guardInt = 25;
+        variant.name = 'IEEE 802.11';
+    elseif varNo == 1
+        subcarriers = []; cycPrefix = []; guardInt = [];
+        while isempty(subcarriers) || ~verifySubcarrierMap(subcarriers)
+            subcarriers = input('Subcarrier arrangement: ', 's');
+        end
+        while isempty(cycPrefix) || ~isnumeric(cycPrefix)
+            cycPrefix = input('Cyclic prefix in %: ');
+        end
+        while isempty(guardInt) || ~isnumeric(guardInt)
+            guardInt = input('Guard interval in %: ');
+        end
+        name = input('Variant name: ', 's');
+        if isempty(name)
+            name = 'Sanctimonious Titter';
+        end
+        variant.subCarriers = subcarriers;
+        variant.cycPrefix = cycPrefix;
+        variant.guardInt = guardInt;
+        variant.name = name;
+    elseif varNo == 2
+        variant.subCarriers = repelem('vdpdvdpdv', [10 3 1 4 1 4 1 4 10]);
+        variant.cycPrefix = 12;
+        variant.guardInt = 15;
+        variant.name = 'TSTR.MNYR.001';
+    end
+end
+
+%% Verify subcarriers
+function valid = verifySubcarrierMap(subcarriers)
+    if ischar(subcarriers)
+        legal = 'vpd';
+        for i = 1:length(subcarriers)
+            if isempty(find(legal == subcarriers(i),1))
+                valid = false;
+                return
+            end
+        end
+        valid = true;
+    else
+        valid = false;
+    end
+end
+
+%% Render variant graphically
+function renderVariant(variant)
+    subCarriers = variant.subCarriers;
+    ofdmSize = length(subCarriers);
+    % first line - pilots only
+    fprintf('\n\t\t\t\t\tOFDM Variant\t|\t%s\n', variant.name);
+    line = repelem(' ', length(subCarriers));
+    for i = 1:ofdmSize
+        line(subCarriers == 'v') = '.';
+        line(subCarriers == 'd') = '|';
+        line(subCarriers == 'p') = char(12);
+    end
+    % midpoint is ofdmSize/2 which should be displaced to 37 spaces
+    spaceCount = 37 - ceil(ofdmSize/2);
+    for i = 1:spaceCount
+        fprintf(' ');
+    end
+    fprintf('%s\n\n', line);
+    fprintf('\t\t\t\t\tCyclic Prefix\t|\t%.0f%%\n', variant.cycPrefix);
+    fprintf('\t\t\t\t\tGuard Interval\t|\t%.0f%%\n', variant.guardInt);
+end
