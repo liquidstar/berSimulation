@@ -44,3 +44,14 @@ The constructor boasts the following methods:
 `freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt, sigAmp)`
 : Stop asking stupid questions. It upscales frequency through frequency mixing. The *In-phase* component is multiplied by a sinusoid that's a quadrant out of phase with that by which the *Quadrature* component is multiplied. The two are then added and taken through a High pass filter. This function has a problem with very high center frequencies as might have been mentioned in another doc. I don't know ... I'm tired.
 : Returns `passBandSig`
+
+##### Changelog 26/07/2020
+The program needed to be stripped down. And part of that end was achieved by making RF modulation optional. So this is the new list of properties:
+- `rfFlag`: That is used to tell it whether or not to upscale to RF frequencies.
+- `baseBandOfdmSig`: The complex result of the `ifft()` operation.
+- `centerFreq`: Center frequency of RF modulation.
+- `passBandAnalog`: The RF OFDM signal.
+- `nTs`: Transmission time
+- `symbolTime`: Symbol duration, and naturally subcarrier spacing in RF (I should try an `fft()` in RF. Might be amusing or heartbreaking)
+- `variant`: A struct, containing `subCarriers`, the string of subcarrier mapping, `cycPrefix`, and `guardInt`. That reminds me that I should prohibit oversized Cyclic Prefixes. How does that even work? Excessiveely long guard intervals are actually plausible.
+- `samplingInterval`: Used by the DAC/ADC pair.

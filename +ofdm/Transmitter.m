@@ -1,45 +1,55 @@
 classdef Transmitter
     %   All transmitter operations
     properties
-        subCarrierConfig    % Number of Data, Pilot and Virtual Subcarriers
-        signalAmplitude     % 
-        parBauds            % Symbols paralleled
-        serBauds            % 
-        binData             % Bauds organized into bins according to 'ofdmVariant'
+        % subCarrierConfig    % Number of Data, Pilot and Virtual Subcarriers
+        % signalAmplitude     % 
+        % parBauds            % Symbols paralleled
+        % serBauds            % 
+        % binData             % Bauds organized into bins according to 'ofdmVariant'
+        rfFlag              % Whether to freq-upscale
         baseBandOfdmSig     % Serialized IFFT product with Cyclic and guard extension
-        baseBandAnalogI     % In-phase
-        baseBandAnalogQ     % Quadrature
+        % baseBandAnalogI     % In-phase
+        % baseBandAnalogQ     % Quadrature
         centerFreq          % RF center frequency
         passBandAnalog      % RF OFDM signal
-        analogTimeBase      % 
+        nTs                 % symbCount x symbolTime
+        symbolTime
+        variant
+        samplingInterval
     end
     methods
-        function trans = Transmitter(serData, ofdmVariant, symbolTime, centerFreq, samplingInterval, sigAmp)
-            trans.subCarrierConfig = [sum(ofdmVariant(:) == 'd') sum(ofdmVariant(:) == 'p') sum(ofdmVariant(:) == 'v')];
-            trans.centerFreq = centerFreq;
-            trans.signalAmplitude = sigAmp;
+        function trans = Transmitter(rf, dataSource, ofdmVariant, Ts, fc, Dt)
+            trans.rfFlag = rf;
+            trans.symbolTime = Ts;
+            trans.centerFreq = fc;
+            trans.variant = ofdmVariant;
+            trans.samplingInterval = Dt;
             % serData to modulator (serial)
-            trans.serBauds = mapBits(serData);
+            serBauds = mapBits(dataSource.serialBits);
             % serBauds to parBauds :: Determined by number of data subcarriers
-            trans.parBauds = makeParallel(trans.serBauds, trans.subCarrierConfig);
+            parBauds = makeParallel(serBauds, ofdmVariant);
             % bauData to IFFT bins :: Determined by 'ofdmVariant'
-            trans.binData = binBauds(trans.parBauds, ofdmVariant);
+            binData = binBauds(parBauds, ofdmVariant);
             % binData -> IFFT -> Cyclic prefix -> Guard Interval -> Serialized
-            trans.baseBandOfdmSig = ofdmMux(trans.binData);
-            % complex basebandOfdm -> I and Q -> Analog I and Q
-            [trans.baseBandAnalogI,trans.baseBandAnalogQ,trans.analogTimeBase] = dac(trans.baseBandOfdmSig, symbolTime, size(trans.binData), samplingInterval);
-            % Upscale frequency to RF
-            trans.passBandAnalog = freqUpScale(trans.baseBandAnalogI, trans.baseBandAnalogQ, trans.centerFreq, trans.analogTimeBase, samplingInterval, sigAmp);
+            trans.baseBandOfdmSig = ofdmMux(binData, ofdmVariant);
+            if (trans.rfFlag)
+                % complex basebandOfdm -> I and Q -> Analog I and Q
+                [baseBandAnalogI,baseBandAnalogQ,t,trans.nTs] = dac(trans.baseBandOfdmSig, Ts, size(binData), Dt);
+                % Upscale frequency to RF
+                trans.passBandAnalog = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt);
+            end
         end    
     end
 end
 %% S - P Conversion
-function parBauds = makeParallel(serBauds,subCarrierConfig)
-    if (mod(length(serBauds),subCarrierConfig(1)) ~= 0)
+function parBauds = makeParallel(serBauds,ofdmVariant)
+    ofdmVariant = ofdmVariant.subCarriers;
+    dataSubs = sum(ofdmVariant(:) == 'd');
+    if (mod(length(serBauds),dataSubs) ~= 0)
         % Append zeros to make baud count a multiple of data subcarriers
-        serBauds = [serBauds zeros(1, subCarrierConfig(1) - mod(length(serBauds),subCarrierConfig(1)))];
+        serBauds = [serBauds zeros(1, dataSubs - mod(length(serBauds),dataSubs))];
     end
-    parBauds = reshape(serBauds, subCarrierConfig(1), []);
+    parBauds = reshape(serBauds, dataSubs, []);
 end
 
 %% BPSK Modulation
@@ -50,39 +60,46 @@ end
 
 %% Map symbols to IFFT bins
  function bins = binBauds(baudMatrix, ofdmVariant)
-    [~, baudCols] = size(baudMatrix);
+    ofdmVariant = ofdmVariant.subCarriers;
+    [~, symbCount] = size(baudMatrix);
     % Total subcarriers x number of OFDM symbols
-    bins = zeros(length(ofdmVariant),baudCols);
+    bins = int8(zeros(length(ofdmVariant),symbCount));
     j = 1;
     for i=1:length(ofdmVariant)
         if ofdmVariant(i) == 'v'
-            bins(i,:) = zeros(1,baudCols);
+            bins(i,:) = zeros(1,symbCount);
         elseif ofdmVariant(i) == 'd'
             bins(i,:) = baudMatrix(j,:);
             j = j + 1;
         elseif ofdmVariant(i) == 'p'
-            bins(i,:) = ones(1,baudCols);
+            bins(i,:) = ones(1,symbCount);
         end     
     end
  end
 
 %% Operate on binned symbols, give baseband signal
- function serOfdmSig = ofdmMux(binData)
+ function serOfdmSig = ofdmMux(binData, ofdmVariant)
+    %ofdmSize = length(ofdmVariant.subCarriers);
+    cp = ofdmVariant.cycPrefix/100;
+    gi = ofdmVariant.guardInt/100;
     binData = binData';
-    % Add cyclic prefix(25%) and guard interval(20% for 802.11)
-    [symPerCarr,numSubCarrier] = size(binData);
-    cycData = zeros(symPerCarr,1.5*numSubCarrier);
-    for i = 1:symPerCarr
-        % ifft it
+    % TODO: Customizable CP & GI
+    [symbCount, ofdmSize] = size(binData);
+    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);
+    cycData = (zeros(symbCount,symbLength));
+    prefixStart = ofdmSize - floor(cp*ofdmSize) + 1;
+    guardSize = floor(gi*ofdmSize);
+    for i = 1:symbCount
+        % ifft per symbol
         ifftData = ifft(binData(i,:));
         % cyclic prefix and guard-interval it
-        cycData(i,:) = [ifftData((0.75*numSubCarrier+1):numSubCarrier), ifftData, zeros(1,0.25*numSubCarrier)];
+        cycData(i,:) = [ifftData(prefixStart:ofdmSize), ifftData, zeros(1,guardSize)];
     end
     serOfdmSig = reshape(cycData', 1, []);
  end
 
 %% Digital to analog conversion
- function [baseBandAnalogI, baseBandAnalogQ, t] = dac(baseBandSig, Ts, ifftBinSize, Dt)
+ function [baseBandAnalogI, baseBandAnalogQ, t, nTsMax] = dac(baseBandSig, Ts, ifftBinSize, Dt)
     % In-phase component
     baseBandSigI = real(baseBandSig);
     % Quadrature component
@@ -91,19 +108,20 @@ end
     n = 0:length(baseBandSig)-1;
     % distribute samples over multiples (Symbol count x symbol duration) :: (numSym * nTs)
     nTs = ifftBinSize(2)*(n*Ts)/length(baseBandSig);
+    nTsMax = max(nTs);
     % Interpolation intervals for DAC up to nTs
-    t = 0:Dt:max(nTs);
+    t = 0:Dt:nTsMax;
     % Spline interpolation of I and Q signals (DAC conversion)
     baseBandAnalogI = spline(nTs, baseBandSigI, t);
     baseBandAnalogQ = spline(nTs, baseBandSigQ, t);
  end
 
 %% Frequency upscaling for pass band 
- function bandPassSig = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt, sigAmp)
+ function bandPassSig = freqUpScale(baseBandAnalogI, baseBandAnalogQ, fc, t, Dt)
     % Mixing to get cos(fc+fm) + cos(fc-fm)
     mixedSig = baseBandAnalogI.*(cos(fc*t)) + baseBandAnalogQ.*(sin(fc*t));
     % High pass filter to get RF signal
     fs = Dt^-1;
     % Applying amplification
-    bandPassSig = 5000*sigAmp*highpass(mixedSig, fc, fs);
+    bandPassSig = 1000*highpass(mixedSig, fc, fs);
  end

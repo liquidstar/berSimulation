@@ -1,33 +1,29 @@
 clc;clear;
-%% Entrypoint to Simulation of BER of OFDM Variant in a Fading Channel
-% Handles all console prints
-%% A word about ofdmVariant: It's the subcarrier config
-% Proto example: "vvvdddvdddvv"
-ieee80211 = carrierMap('vdpdpdvdpdpdv', [5 5 1 13 1 6 1 6 1 13 1 5 6]);
-sigAmp = 1:1:30;
-% TODO: Ask for user input to supply program variables
+%% Interface instance
+CLI = Interface();
+% Interface() properties
+bitCount = CLI.bitCount;
+rfFlag = CLI.rfFlag;
+Ts = CLI.Ts;
+fc = CLI.fc;
+KdB = CLI.KdB;
+channelType = CLI.channelType;
+variant = CLI.variant;
+% vvvvdddddpdddddddddddddpddddddvddddddpdddddddddddddpdddddvvvvv
+sigAmp = 0:1:30;
 
-
-%% Creation of communication instances and associated data
-% Preallocating communication array
+%% Simulation of Communication
+dataSource = ofdm.DataSource(bitCount);
+transmitter = ofdm.Transmitter(rfFlag, dataSource, variant, Ts, fc, 0.49*(fc)^-1);
+% Evaluator: Gets PAPR from transmitter
 commCount = length(sigAmp);
-commArray = repelem(ofdm.Communication(),commCount);
+eval = ofdm.Evaluator(transmitter);
+% Channel and reception for different SNRs
 for i = 1:commCount
-    commArray(i) = ofdm.Communication(1000, ieee80211, 4e-6, 2.4e9, .49*(2.4e9)^-1, "rayl", sigAmp(i), 15);    
-    showProgress(i,commCount);
+    comm = ofdm.Transmission(transmitter, sigAmp(i), KdB, channelType);
+    CLI.showStatus(CLI, i, commCount);
+    eval = eval.getBer(dataSource, comm);
+    clear comm;
 end
-fprintf('\n');
-
-% Get a BER evaluation from several comm instances and plot them
-evaluator = ofdm.Evaluator(commArray);
-%% Parse OFDM config
-function variant = carrierMap(carrGrps, carrCounts)
-    variant = repelem(carrGrps, carrCounts);
-end
-
-%% Show simulation progress
-function progReport = showProgress(i,commCount)
-    progReport = [repelem('#',i) repelem('-', commCount-i)];
-    clc;
-    fprintf("Progress: %.2f%% [%s]",100*i/commCount,progReport);
-end
+% BER plot and show PAPR
+CLI.showReport(eval, sigAmp);
