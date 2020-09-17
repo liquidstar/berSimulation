@@ -100,9 +100,10 @@ end
 function noisyBauds = unMapBauds(serOfdmSig, ofdmVariant)
     ofdmSize = length(ofdmVariant.subCarriers);
     fftBins = (reshape(serOfdmSig, ofdmSize, []))';
+    [symbCount,~] = size(fftBins);
     % Need to FFT each column, thus $symbCount FFT operations
     noisyBauds = zeros(size(fftBins));
-    for i = 1:length(fftBins)
+    for i = 1:symbCount
         noisyBauds(i,:) = fft(fftBins(i,:));
     end
     noisyBauds = noisyBauds';

@@ -43,10 +43,10 @@ classdef Interface
             displayBanner(1);
             showProgress(iter, commCount);
             fprintf('\n');
+            displayBanner(1);
         end
         % function to report from Evaluator()
         function showReport(eval, snrVector)
-            displayBanner(1);
             semilogy(snrVector, eval.bitErrors);
             fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(eval.papr));
         end
@@ -75,6 +75,8 @@ function displayBanner(bannerNo)
         stars(dashes == '-') = '*';
         fprintf(stars);
         fprintf(' - - - - - - #\n');
+    elseif bannerNo == 2
+        fprintf('+-------------------------\n');
     end
 end
 
@@ -82,28 +84,33 @@ end
 function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
     % Prompt user for bit count
     bitCount = input("How many bits, boss?\n[100,000] > ");% int32(1e5);
+    displayBanner(2);
     if isempty(bitCount)
         bitCount = 1e5;
     end
     % User selects OFDM variant
-    varChoice = input("Which OFDM variant would you like to use?\n (0).IEEE 802.11\n (1).Custom (Expert)\n (2).Express Debugger\n[0] > ");
+    varChoice = input("Which OFDM variant would you like to use?\n  (0).IEEE 802.11\n  (1).Custom (Expert)\n  (2).Express Debugger\n[0] > ");
+    displayBanner(2);
     if isempty(varChoice) || varChoice == 0
         variant = enterVariant(0);
     else
         variant = enterVariant(varChoice);
     end
     % User decides whether transmission is over RF
-    rfFlag = logical(input("(0).Baseband or (1).Passband transmission?\n[0] > "));
+    rfFlag = logical(input("Transmission band:\n  (0).Baseband\n  (1).Passband\n[0] > "));
+    displayBanner(2);
     if isempty(rfFlag)
         rfFlag = false;
     end
     % Passband parameters
     if rfFlag
         Ts = input('Symbol duration:\n[4 us] > ');
+        displayBanner(2);
         if isempty(Ts)
             Ts = 4e-6;
         end
         fc = input('Carrier center frequency\n[2.4 GHz] > ');
+        displayBanner(2);
         if isempty(fc)
             fc = 2.4e9;
         end
@@ -113,7 +120,8 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
     end
     % Channel Parameters
     KdB = [];
-    channel = input('Channel type?\n    (1).AWGN\n    (2).Rayleigh\n    (3).Rician\n[1] > ');
+    channel = input('Channel model?\n  (1).AWGN\n  (2).Rayleigh\n  (3).Rician\n[1] > ');
+    displayBanner(2);
     if isempty(channel)
         channel = 1;
     end
@@ -124,6 +132,7 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
     elseif channel == 3
         channelType = "rice";
         KdB = single(input('Give me K in dB\n[0] > '));
+        displayBanner(2);
     end
     if isempty(KdB)
         KdB = 0;
@@ -154,7 +163,7 @@ end
 function showProgress(i,commCount)
     progReport = [repelem('#',i) repelem('-', commCount-i)];
     %clc;
-    fprintf("Progress: %.2f%% [%s]",100*i/commCount,progReport);
+    fprintf("\t\t\tProgress: %.2f%% [%s]",100*i/commCount,progReport);
 end
 
 %% Enter Variant details
@@ -167,10 +176,10 @@ function variant = enterVariant(varNo)
     elseif varNo == 1
         subcarriers = []; cycPrefix = []; guardInt = [];
         while isempty(subcarriers) || ~verifySubcarrierMap(subcarriers)
-            subcarriers = input('Subcarrier arrangement: ', 's');
+            subcarriers = input('Subcarrier arrangement: (v)irtual, (d)ata or (p)ilot subcarriers.\ne.g. (vvddpddvddpdddvv) for 5-Virtual, 2-Pilot and 9-Data in the order entered, sans parentheses\n> ', 's');
         end
-        while isempty(cycPrefix) || ~isnumeric(cycPrefix)
-            cycPrefix = input('Cyclic prefix in %: ');
+        while isempty(cycPrefix) || ~isnumeric(cycPrefix) || (cycPrefix > 100 || cycPrefix < 0)
+            cycPrefix = input('Cyclic prefix in %:\n (0-100) > ');
         end
         while isempty(guardInt) || ~isnumeric(guardInt)
             guardInt = input('Guard interval in %: ');
@@ -184,9 +193,9 @@ function variant = enterVariant(varNo)
         variant.guardInt = guardInt;
         variant.name = name;
     elseif varNo == 2
-        variant.subCarriers = repelem('vdpdvdpdv', [10 3 1 4 1 4 1 4 10]);
-        variant.cycPrefix = 12;
-        variant.guardInt = 15;
+        variant.subCarriers = 'vvvdddpdddvdddpdddvvv';
+        variant.cycPrefix = 100;
+        variant.guardInt = 200;
         variant.name = 'TSTR.MNYR.001';
     end
 end
@@ -220,7 +229,7 @@ function renderVariant(variant)
         line(subCarriers == 'p') = char(12);
     end
     % midpoint is ofdmSize/2 which should be displaced to 37 spaces
-    spaceCount = 37 - ceil(ofdmSize/2);
+    spaceCount = 36 - ceil(ofdmSize/2);
     for i = 1:spaceCount
         fprintf(' ');
     end

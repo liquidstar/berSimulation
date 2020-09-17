@@ -18,9 +18,7 @@ classdef Transmitter
         samplingInterval
     end
     methods
-        % function trans = Transmitter(serData, ofdmVariant, symbolTime, centerFreq, samplingInterval, sigAmp)
         function trans = Transmitter(rf, dataSource, ofdmVariant, Ts, fc, Dt)
-            % subCarrierConfig = [sum(ofdmVariant(:) == 'd') sum(ofdmVariant(:) == 'p') sum(ofdmVariant(:) == 'v')];
             trans.rfFlag = rf;
             trans.symbolTime = Ts;
             trans.centerFreq = fc;
