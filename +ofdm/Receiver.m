@@ -112,6 +112,6 @@ end
 %% BPSK Demodulation
 function serRecBits = unMapBits(parRecSymb)
     serRecSymb = reshape(real(parRecSymb), 1, []);
-    % Truncate invalid symbols out // Prone to introducing errors so emitted assuming no knowledge about transmitted data
+    % BPSK demodulation
     serRecBits = serRecSymb > 0;
 end

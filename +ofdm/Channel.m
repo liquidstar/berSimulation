@@ -32,7 +32,7 @@ end
 function [noisySignal, channelChar] = addGaussianNoise(transmitSig, No)
     n = length(transmitSig);
     channelChar = 1;
-    noisySignal = transmitSig + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    noisySignal = transmitSig + sqrt(No^2/2)*(randn(1,n) + 1i*randn(1,n));
 end
 
 %% Function to implement Rayleigh Fading
@@ -52,7 +52,7 @@ function [fadedSignal, channelChar] = rayleighFading(rfFlag, transmitSig, No, t,
     else
         channelChar = (1/sqrt(2))*(randn(1,n) + 1i*randn(1,n));
     end
-    fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    fadedSignal = transmitSig.*channelChar + sqrt(No^2/2)*(randn(1,n) + 1i*randn(1,n));
 end
 
 %% Function to implement Rician Fading
@@ -72,5 +72,5 @@ function [fadedSignal, channelChar] = ricianFading(rfFlag, transmitSig, specular
     else
         channelChar = sqrt(K/(K+1)) + sqrt(1/(K+1))*(1/sqrt(2))*(randn(1,n) + 1i*randn(1,n));
     end
-    fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    fadedSignal = transmitSig.*channelChar + sqrt(No^2/2)*(randn(1,n) + 1i*randn(1,n));
 end

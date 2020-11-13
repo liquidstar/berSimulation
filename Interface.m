@@ -6,7 +6,6 @@ classdef Interface
         Ts
         fc
         KdB
-        %channelType
     end
     methods
         function CLI = Interface()
@@ -32,12 +31,7 @@ classdef Interface
             displayBanner(1);
             %if CLI.channelType == "rice"
             %    fprintf('\t\t\t\t\tChannel Model\t|\tRician\n');
-                fprintf('\t\t\t\t\t\t\t\tK\t|\t%.1f dB\n', CLI.KdB);
-            %elseif CLI.channelType == "rayl"
-            %    fprintf('\t\t\t\t\tChannel Model\t|\tRayleigh\n');
-            %else
-            %    fprintf('\t\t\t\t\tChannel Model\t|\tAWGN\n');
-            %end
+            fprintf('\t\t\t\t\t\t\t\tK\t|\t%.1f dB\n', CLI.KdB);
             displayBanner(1);
             renderVariant(CLI.variant);
             displayBanner(1);
@@ -48,8 +42,10 @@ classdef Interface
         % function to report from Evaluator()
         function showReport(eval, snrVector)
             semilogy(snrVector, eval.bitErrors);
-            hold on;
-            fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(eval.papr));
+            xlabel('SNR [dB]');ylabel('BER');title('BER for OFDM Project Variant');
+            xlim([0 15]);
+            hold on; grid on;
+            fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(mean(eval.papr)));
         end
     end
 end
@@ -90,16 +86,15 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB] = dataEntry()
         bitCount = 1e6;
     end
     % User selects OFDM variant
-    varChoice = input("Which OFDM variant would you like to use?\n  (0).IEEE 802.11\n  (1).Custom (Expert)\n  (2).Express Debugger\n[0] > ");
+    varChoice = input("Which OFDM variant would you like to use?\n  (0).IEEE 802.11\n  (1).Project Variant\n  (2).Custom (Expert Mode)\n[1] > ");
     displayBanner(2);
-    if isempty(varChoice) || varChoice == 0
-        variant = enterVariant(0);
+    if isempty(varChoice) || varChoice == 1
+        variant = enterVariant(1);
     else
         variant = enterVariant(varChoice);
     end
-    % User decides whether transmission is over RF
-    rfFlag = logical(input("Transmission band:\n  (0).Baseband\n  (1).Passband\n[0] > "));
-    displayBanner(2);
+    % No RF presentation required
+    rfFlag = [];
     if isempty(rfFlag)
         rfFlag = false;
     end
@@ -119,22 +114,7 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB] = dataEntry()
         Ts = 4e-6;
         fc = 2.4e9;
     end
-    % Channel Parameters
-    %KdB = [];
-    %channel = input('Channel model?\n  (1).AWGN\n  (2).Rayleigh\n  (3).Rician\n[1] > ');
-    %displayBanner(2);
-    %if isempty(channel)
-    %    channel = 1;
-    %end
-    %if channel == 1
-    %    channelType = "gauss";
-    %elseif channel == 2
-    %    channelType = "rayl";
-    %elseif channel == 3
-    %    channelType = "rice";
-    %    KdB = single(input('Give me K in dB\n[0] > '));
-    %    displayBanner(2);
-    %end
+    % Specular dB
     KdB = single(input('Give me K in dB\n[0] > '));
     if isempty(KdB)
         KdB = 0;
@@ -175,7 +155,7 @@ function variant = enterVariant(varNo)
         variant.cycPrefix = 25;
         variant.guardInt = 25;
         variant.name = 'IEEE 802.11';
-    elseif varNo == 1
+    elseif varNo == 2
         subcarriers = []; cycPrefix = []; guardInt = [];
         while isempty(subcarriers) || ~verifySubcarrierMap(subcarriers)
             subcarriers = input('Subcarrier arrangement: (v)irtual, (d)ata or (p)ilot subcarriers.\ne.g. (vvddpddvddpdddvv) for 5-Virtual, 2-Pilot and 9-Data in the order entered, sans parentheses\n> ', 's');
@@ -194,11 +174,11 @@ function variant = enterVariant(varNo)
         variant.cycPrefix = cycPrefix;
         variant.guardInt = guardInt;
         variant.name = name;
-    elseif varNo == 2
-        variant.subCarriers = 'vvvdddpdddvdddpdddvvv';
-        variant.cycPrefix = 100;
-        variant.guardInt = 200;
-        variant.name = 'TSTR.MNYR.001';
+    elseif varNo == 1
+        variant.subCarriers = repelem('vdpdpdvdpdpdv', [5 11 1 13 1 6 1 6 1 13 1 11 6]);
+        variant.cycPrefix = 25;
+        variant.guardInt = 25;
+        variant.name = 'Project Variant';
     end
 end
 

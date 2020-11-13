@@ -11,12 +11,12 @@ classdef Transmitter
         samplingInterval
     end
     methods
-        function trans = Transmitter(rf, dataSource, ofdmVariant, Ts, fc, Dt)
+        function trans = Transmitter(rf, dataSource, ofdmVariant, Ts, fc)
             trans.rfFlag = rf;
             trans.symbolTime = Ts;
             trans.centerFreq = fc;
             trans.variant = ofdmVariant;
-            trans.samplingInterval = Dt;
+            trans.samplingInterval = 0.49*(fc)^-1;
             % Convert bit stream into symbol stream
             serBauds = mapBits(dataSource.serialBits);
             % Serial symbol stream into parallel according to variant

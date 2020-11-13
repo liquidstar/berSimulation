@@ -8,7 +8,7 @@ classdef Evaluator
     methods
         function eval = Evaluator(transmitter)
             eval.bitErrors = [];
-            eval.papr = findPapr(transmitter);
+            eval.papr = [eval.papr, findPapr(transmitter)];
         end
         % Add commInst BER
         function eval = getBer(eval, dataSource, commInst)
