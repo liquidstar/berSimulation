@@ -35,5 +35,5 @@ function papr = findPapr(transmitter)
         peaks(i+1) = max(thisSymb);
         avgs(i+1) = mean(thisSymb);
     end
-    papr = mean(peaks)/mean(avgs);
+    papr = max(peaks)/mean(avgs);
 end

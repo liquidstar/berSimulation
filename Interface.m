@@ -6,12 +6,12 @@ classdef Interface
         Ts
         fc
         KdB
-        channelType
+        %channelType
     end
     methods
         function CLI = Interface()
             displayBanner(0);
-            [CLI.bitCount, CLI.variant, CLI.rfFlag, CLI.Ts, CLI.fc, CLI.KdB, CLI.channelType] = dataEntry();
+            [CLI.bitCount, CLI.variant, CLI.rfFlag, CLI.Ts, CLI.fc, CLI.KdB] = dataEntry();
         end
     end
     methods(Static)
@@ -30,14 +30,14 @@ classdef Interface
             end
             % Only for Rician Fading
             displayBanner(1);
-            if CLI.channelType == "rice"
-                fprintf('\t\t\t\t\tChannel Model\t|\tRician\n');
+            %if CLI.channelType == "rice"
+            %    fprintf('\t\t\t\t\tChannel Model\t|\tRician\n');
                 fprintf('\t\t\t\t\t\t\t\tK\t|\t%.1f dB\n', CLI.KdB);
-            elseif CLI.channelType == "rayl"
-                fprintf('\t\t\t\t\tChannel Model\t|\tRayleigh\n');
-            else
-                fprintf('\t\t\t\t\tChannel Model\t|\tAWGN\n');
-            end
+            %elseif CLI.channelType == "rayl"
+            %    fprintf('\t\t\t\t\tChannel Model\t|\tRayleigh\n');
+            %else
+            %    fprintf('\t\t\t\t\tChannel Model\t|\tAWGN\n');
+            %end
             displayBanner(1);
             renderVariant(CLI.variant);
             displayBanner(1);
@@ -48,6 +48,7 @@ classdef Interface
         % function to report from Evaluator()
         function showReport(eval, snrVector)
             semilogy(snrVector, eval.bitErrors);
+            hold on;
             fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(eval.papr));
         end
     end
@@ -55,7 +56,7 @@ end
 
 %% Print a UI decoration
 function displayBanner(bannerNo)
-    [text, dashes] = padText('Super Didact');
+    [text, dashes] = padText('BER Simulation');
     if bannerNo == 0
         % overline
         fprintf('\t\t\t\t# - - - - ');
@@ -81,12 +82,12 @@ function displayBanner(bannerNo)
 end
 
 %% Parameter input function
-function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
+function [bitCount, variant, rfFlag, Ts, fc, KdB] = dataEntry()
     % Prompt user for bit count
-    bitCount = input("How many bits, boss?\n[100,000] > ");% int32(1e5);
+    bitCount = input("How many bits, boss?\n[1,000,000] > ");
     displayBanner(2);
     if isempty(bitCount)
-        bitCount = 1e5;
+        bitCount = 1e6;
     end
     % User selects OFDM variant
     varChoice = input("Which OFDM variant would you like to use?\n  (0).IEEE 802.11\n  (1).Custom (Expert)\n  (2).Express Debugger\n[0] > ");
@@ -119,21 +120,22 @@ function [bitCount, variant, rfFlag, Ts, fc, KdB, channelType] = dataEntry()
         fc = 2.4e9;
     end
     % Channel Parameters
-    KdB = [];
-    channel = input('Channel model?\n  (1).AWGN\n  (2).Rayleigh\n  (3).Rician\n[1] > ');
-    displayBanner(2);
-    if isempty(channel)
-        channel = 1;
-    end
-    if channel == 1
-        channelType = "gauss";
-    elseif channel == 2
-        channelType = "rayl";
-    elseif channel == 3
-        channelType = "rice";
-        KdB = single(input('Give me K in dB\n[0] > '));
-        displayBanner(2);
-    end
+    %KdB = [];
+    %channel = input('Channel model?\n  (1).AWGN\n  (2).Rayleigh\n  (3).Rician\n[1] > ');
+    %displayBanner(2);
+    %if isempty(channel)
+    %    channel = 1;
+    %end
+    %if channel == 1
+    %    channelType = "gauss";
+    %elseif channel == 2
+    %    channelType = "rayl";
+    %elseif channel == 3
+    %    channelType = "rice";
+    %    KdB = single(input('Give me K in dB\n[0] > '));
+    %    displayBanner(2);
+    %end
+    KdB = single(input('Give me K in dB\n[0] > '));
     if isempty(KdB)
         KdB = 0;
     end
