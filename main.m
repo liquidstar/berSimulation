@@ -1,4 +1,4 @@
-clc;clear;
+clc;
 %% Interface instance
 CLI = Interface();
 % Interface() properties

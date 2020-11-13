@@ -169,7 +169,7 @@ end
 %% Enter Variant details
 function variant = enterVariant(varNo)
     if varNo == 0
-        variant.subCarriers = repelem('vdpdpdvdpdpdv', [5 5 1 13 1 6 1 6 1 13 1 5 6]);
+        variant.subCarriers = repelem('vdpdpdvdpdpdv', [8 11 1 13 1 6 1 6 1 13 1 11 7]);
         variant.cycPrefix = 25;
         variant.guardInt = 25;
         variant.name = 'IEEE 802.11';

@@ -10,11 +10,12 @@ classdef Channel
     methods
         function link = Channel(transmitter, sigAmp, speculardB, type)
             rfFlag = transmitter.rfFlag;
-            if (rfFlag)
-                transmitSig = sigAmp*transmitter.passBandAnalog;
-            else
-                transmitSig = sigAmp*transmitter.baseBandOfdmSig;
-            end
+            %if (rfFlag)
+             %   transmitSig = sigAmp*transmitter.passBandAnalog;
+            %else
+             %   transmitSig = sigAmp*transmitter.baseBandOfdmSig;
+            %end
+            transmitSig = transmitter.baseBandOfdmSig;
             t = transmitter.nTs;
             Ts = transmitter.symbolTime;
             No = 10^-(sigAmp/10);
@@ -33,7 +34,8 @@ end
 function [noisySignal, channelChar] = addGaussianNoise(transmitSig, No)
     n = length(transmitSig);
     channelChar = 1;
-    noisySignal = transmitSig + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    %noisySignal = transmitSig + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    noisySignal = transmitSig + No*(randn(1,n) + 1i*randn(1,n))*sqrt(1/2);
 end
 
 %% Function to implement Rayleigh Fading
@@ -53,7 +55,8 @@ function [fadedSignal, channelChar] = rayleighFading(rfFlag, transmitSig, No, t,
     else
         channelChar = (1/sqrt(2))*(randn(1,n) + 1i*randn(1,n));
     end
-    fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    %fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    fadedSignal = transmitSig.*channelChar + No*(randn(1,n) + 1i*randn(1,n))*sqrt(1/2);
     % TODO: Figure out the place of No in all this
 end
 
@@ -74,5 +77,6 @@ function [fadedSignal, channelChar] = ricianFading(rfFlag, transmitSig, specular
     else
         channelChar = sqrt(K/(K+1)) + sqrt(1/(K+1))*(1/sqrt(2))*(randn(1,n) + 1i*randn(1,n));
     end
-    fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    %fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
+    fadedSignal = transmitSig.*channelChar + No*(randn(1,n) + 1i*randn(1,n))*sqrt(1/2); 
 end
