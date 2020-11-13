@@ -9,7 +9,6 @@ fc = CLI.fc;
 KdB = CLI.KdB;
 channelType = CLI.channelType;
 variant = CLI.variant;
-% vvvvdddddpdddddddddddddpddddddvddddddpdddddddddddddpdddddvvvvv
 sigAmp = 0:1:30;
 
 %% Simulation of Communication

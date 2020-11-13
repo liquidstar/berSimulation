@@ -1,8 +1,6 @@
 % An object to perform all necessary analyses on Communication() instances
 classdef Evaluator
     properties
-        % commArray
-        % snrVector
         bitErrors
         papr
     end
@@ -20,8 +18,6 @@ classdef Evaluator
             ber = sum(rxData ~= txData)/length(txData);
             eval.bitErrors = [eval.bitErrors ber];
         end
-        % Add commInst PAPR to paprs
-        % TODO: Save simulation data to file
     end
 end
 

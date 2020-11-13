@@ -3,7 +3,6 @@ classdef Channel
     % Add noise and implement fading(Rayleigh or Rice)
     properties
         noisySignal                 % Signal post fading and AWGN
-        % noiseVariance               % TODO: Figure this out
         channelCharacterization     % Channel Transfer function for equalization
     end
     
@@ -11,9 +10,9 @@ classdef Channel
         function link = Channel(transmitter, sigAmp, speculardB, type)
             rfFlag = transmitter.rfFlag;
             if (rfFlag)
-                transmitSig = sigAmp*transmitter.passBandAnalog;
+                transmitSig = transmitter.passBandAnalog;
             else
-                transmitSig = sigAmp*transmitter.baseBandOfdmSig;
+                transmitSig = transmitter.baseBandOfdmSig;
             end
             t = transmitter.nTs;
             Ts = transmitter.symbolTime;
@@ -54,7 +53,6 @@ function [fadedSignal, channelChar] = rayleighFading(rfFlag, transmitSig, No, t,
         channelChar = (1/sqrt(2))*(randn(1,n) + 1i*randn(1,n));
     end
     fadedSignal = transmitSig.*channelChar + sqrt(No/2)*(randn(1,n) + 1i*randn(1,n));
-    % TODO: Figure out the place of No in all this
 end
 
 %% Function to implement Rician Fading
@@ -64,7 +62,7 @@ function [fadedSignal, channelChar] = ricianFading(rfFlag, transmitSig, specular
     if rfFlag
         symbCount = ceil(max(t)/Ts);
         % Rice Special
-        % H = sqrt(K/(K+1)) + sqrt(1/(K+1))*Ray_model(L);
+        % H = sqrt(K/(K+1)) + sqrt(1/(K+1))*RayDistribution(L);
         fading = randn(1,symbCount) + 1i*randn(1,symbCount);
         channelChar = sqrt(K/(K+1)) + sqrt(1/(K+1))*(1/sqrt(2))*repelem(fading, floor(n/symbCount));
         m = length(channelChar);

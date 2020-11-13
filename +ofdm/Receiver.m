@@ -1,26 +1,12 @@
 classdef Receiver
     % Get Noisy OFDM signal from channel, give decoded message
     properties
-        % noisyBaseI  % Freq down-conversion products
-        % noisyBaseQ  %
-        % digitalI    % ADC products
-        % digitalQ    %
         serOfdmSig  % Combined I and Q signals
-        % parRecBauds % FFT product
-        % binRecBauds %
-        % parRecSymb  % 
         serRecBits  % Communication output
     end
     
     methods
         function rece = Receiver(rfFlag, noisySignal, h, nTs, ofdmVariant, Ts, fc, Dt)
-            % noisyPassBandOfdm = single(noisyPassBandOfdm);
-            % h = single(h);
-            % Ts = single(Ts);
-            % fc = single(fc);
-            % Dt = single(Dt);
-            % t = single(t);
-            % Frequency DownConversion
             noisySignal = channelEq(noisySignal, h);
             if (rfFlag)
                 t = 0:Dt:nTs;
@@ -71,7 +57,7 @@ function [recDigI, recDigQ, symbCount] = adc(ofdmVariant, recNoisyBaseI, recNois
     cp = ofdmVariant.cycPrefix/100;
     gi = ofdmVariant.guardInt/100;
     % Samples per symbol dependent on variant
-    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);        % TODO: Customizable CP & GI
+    symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);
     % Sampling interval = n * numSym * sampPerSym
     samples = floor(linspace(1,length(t),symbCount*symbLength));
     % And now to convert to digital

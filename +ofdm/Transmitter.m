@@ -1,15 +1,8 @@
 classdef Transmitter
-    %   All transmitter operations
+    % All transmitter operations
     properties
-        % subCarrierConfig    % Number of Data, Pilot and Virtual Subcarriers
-        % signalAmplitude     % 
-        % parBauds            % Symbols paralleled
-        % serBauds            % 
-        % binData             % Bauds organized into bins according to 'ofdmVariant'
         rfFlag              % Whether to freq-upscale
         baseBandOfdmSig     % Serialized IFFT product with Cyclic and guard extension
-        % baseBandAnalogI     % In-phase
-        % baseBandAnalogQ     % Quadrature
         centerFreq          % RF center frequency
         passBandAnalog      % RF OFDM signal
         nTs                 % symbCount x symbolTime
@@ -24,9 +17,9 @@ classdef Transmitter
             trans.centerFreq = fc;
             trans.variant = ofdmVariant;
             trans.samplingInterval = Dt;
-            % serData to modulator (serial)
+            % Convert bit stream into symbol stream
             serBauds = mapBits(dataSource.serialBits);
-            % serBauds to parBauds :: Determined by number of data subcarriers
+            % Serial symbol stream into parallel according to variant
             parBauds = makeParallel(serBauds, ofdmVariant);
             % bauData to IFFT bins :: Determined by 'ofdmVariant'
             binData = binBauds(parBauds, ofdmVariant);
@@ -54,8 +47,8 @@ end
 
 %% BPSK Modulation
  function bauds = mapBits(bitArray)
-    % 'bitArray' are integers, subtracting .5 results in -.5 or .5 rounded to -1 or 1
-    bauds = (bitArray - 0.5);
+    % BPSK Modulation
+    bauds = 2*bitArray - 1;
  end
 
 %% Map symbols to IFFT bins
@@ -79,11 +72,9 @@ end
 
 %% Operate on binned symbols, give baseband signal
  function serOfdmSig = ofdmMux(binData, ofdmVariant)
-    %ofdmSize = length(ofdmVariant.subCarriers);
     cp = ofdmVariant.cycPrefix/100;
     gi = ofdmVariant.guardInt/100;
     binData = binData';
-    % TODO: Customizable CP & GI
     [symbCount, ofdmSize] = size(binData);
     symbLength = ofdmSize + floor(cp*ofdmSize) + floor(gi*ofdmSize);
     cycData = (zeros(symbCount,symbLength));
@@ -92,7 +83,7 @@ end
     for i = 1:symbCount
         % ifft per symbol
         ifftData = ifft(binData(i,:));
-        % cyclic prefix and guard-interval it
+        % cyclic prefix and guard-interval
         cycData(i,:) = [ifftData(prefixStart:ofdmSize), ifftData, zeros(1,guardSize)];
     end
     serOfdmSig = reshape(cycData', 1, []);
@@ -100,6 +91,7 @@ end
 
 %% Digital to analog conversion
  function [baseBandAnalogI, baseBandAnalogQ, t, nTsMax] = dac(baseBandSig, Ts, ifftBinSize, Dt)
+    % TODO: Intermediate frequency
     % In-phase component
     baseBandSigI = real(baseBandSig);
     % Quadrature component
