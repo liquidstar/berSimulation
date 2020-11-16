@@ -43,7 +43,7 @@ classdef Interface
         function showReport(eval, snrVector)
             semilogy(snrVector, eval.bitErrors);
             xlabel('SNR [dB]');ylabel('BER');title('BER for OFDM Project Variant');
-            xlim([0 15]);
+            xlim([0 15]);ylim([1e-6 1]);
             hold on; grid on;
             fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(mean(eval.papr)));
         end
@@ -175,7 +175,7 @@ function variant = enterVariant(varNo)
         variant.guardInt = guardInt;
         variant.name = name;
     elseif varNo == 1
-        variant.subCarriers = repelem('vdpdpdvdpdpdv', [5 11 1 13 1 6 1 6 1 13 1 11 6]);
+        variant.subCarriers = repelem('vdpdpdvdpdpdv', [7 11 1 13 1 6 1 6 1 13 1 11 8]);
         variant.cycPrefix = 25;
         variant.guardInt = 25;
         variant.name = 'Project Variant';
