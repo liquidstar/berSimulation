@@ -9,7 +9,7 @@ fc = CLI.fc;
 KdB = CLI.KdB;
 %channelType = CLI.channelType;
 %channelType = ["gauss", "rayl", "rice"];
-channelType = ["rice"];
+channelType = ["gauss"];
 variant = CLI.variant;
 sigAmp = 0:1:30;
 
