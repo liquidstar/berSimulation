@@ -41,14 +41,15 @@ function plotAwgn(snrVector,snrs,bersAWGN)
     hold on;grid on;
     semilogy(snrVector,BERs);
     legend('AWGN','AWGN Fit')
+    xlabel('SNR(dB)');ylabel('BER');title('AWGN Curve fit');
 end
 function plotRayl(snrVector,snrs,bersRayl)
     for yy=1:length(snrVector)
         xx=snrVector(yy);
         if xx<=17
-            y=0.5*qfunc((xx-11.1)/3.05);
+            y=0.49*qfunc((xx-11.1)/3.05);
         else
-            y=10000*qfunc((xx-35)/11);
+            y=10000*qfunc((xx+35)/11);
         end
         BERs(yy,:)=y;
     end 
@@ -57,6 +58,7 @@ function plotRayl(snrVector,snrs,bersRayl)
     semilogy(snrVector,BERs);
     xlim([0 15])
     legend('Rayleigh','Rayleigh Fit')
+    xlabel('SNR(dB)');ylabel('BER');title('Rayleigh Curve fit');
 end
 
 function plotRice(snrVector,snrs,riceBerMatrix,k, bersRayl, bersAWGN)
@@ -86,4 +88,5 @@ function plotRice(snrVector,snrs,riceBerMatrix,k, bersRayl, bersAWGN)
     semilogy(snrVector,BERs);
     xlim([0 15])
     legend('Rician','Rician Fit')
+    xlabel('SNR(dB)');ylabel('BER');title('Rician Curve fit');
 end

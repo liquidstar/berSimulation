@@ -40,11 +40,22 @@ classdef Interface
             displayBanner(1);
         end
         % function to report from Evaluator()
-        function showReport(eval, snrVector)
+        function showReport(eval, snrVector, CLI, channelType)
             semilogy(snrVector, eval.bitErrors);
-            xlabel('SNR [dB]');ylabel('BER');title('BER for OFDM Project Variant');
+            xlabel('SNR [dB]');ylabel('BER');title(['BER for ',CLI.variant.name]);
             xlim([0 15]);ylim([1e-6 1]);
             hold on; grid on;
+            if length(channelType) == 3
+                legend('AWGN', 'Rayleigh', 'Rician');
+            else
+                if channelType(1) == "rayl"
+                    legend('Rayleigh');
+                elseif channelType(1) == "rice"
+                    legend('Rician');
+                elseif channelType(1) == "gauss"
+                    legend('AWGN');
+                end
+            end
             fprintf('\t\t\t\t\t\t\tPAPR\t|\t%.2f dB\n', 10*log10(mean(eval.papr)));
         end
     end

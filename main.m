@@ -1,4 +1,4 @@
-clc;clear;
+clc;clear;clf;
 %% Interface instance
 CLI = Interface();
 % Interface() properties
@@ -8,8 +8,11 @@ Ts = CLI.Ts;
 fc = CLI.fc;
 KdB = CLI.KdB;
 %channelType = CLI.channelType;
-%channelType = ["gauss", "rayl", "rice"];
-channelType = ["gauss"];
+channelType = ["gauss", "rayl", "rice"];
+%channelType = ["gauss"];
+%channelType = ["rayl"];
+%channelType = ["rice"];
+
 variant = CLI.variant;
 sigAmp = 0:1:30;
 
@@ -28,5 +31,10 @@ for j = 1:length(channelType)
         clear comm;
     end
 % BER plot and show PAPR
-    CLI.showReport(eval, sigAmp);
+    CLI.showReport(eval, sigAmp, CLI, channelType);
+    load simData.mat;
+    berArray = [berArray; eval.bitErrors];
+    save simData berArray;
+    clear berArray;
 end
+% Save data
